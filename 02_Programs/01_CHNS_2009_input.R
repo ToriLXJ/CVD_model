@@ -10,11 +10,11 @@ library(Hmisc) # multiple imputation
 library(survey)
 
 ##### GENERAL SETTINGS #############################################################################
-setwd("C:/Users/ASUS/Desktop/data_v3/01_Input")
+setwd("D:/Research-SJTUH/CVD/code/CVD_model/01_Input")
 # File paths for saving intermediate and final data sets
-raw_filepath = "./CHNS_raw.csv"
-preImp_filepath = "./CHNS_preImp.csv"
-Imp_filepath = "./CHNS_Imp_0302.csv"
+# raw_filepath = "./CHNS_raw.csv"
+# preImp_filepath = "./CHNS_preImp.csv"
+Imp_filepath = "./CHNS_Imp_0305.csv"
 
 cycles <- c("2009")
 
@@ -28,29 +28,29 @@ cycles <- c("2009")
 # To implement this change, I will sum across the criteria, removing NA values.
 ##### MULTIPLE IMPUTATION ##########################################################################
 
-set.seed(1899)
-orig.data <- read.csv("CHNS_V3.csv")
-orig.data$Subject_ID <- c(1:nrow(orig.data))
-n.participants <- nrow(orig.data)
-
-num.imp <-10 # Set number of imputations
-num.knots <- 3 # set 0 for linear predictions of continous variables
-imputed.data <- aregImpute(~AGE+GENDER+BMI+HEIGHT+WEIGHT+TC+HDL_C+SBP+DBP+SMOKING+GLUCOSE+DM+WBC+TG
+if(FALSE) {
+  set.seed(1899)
+  orig.data <- read.csv("CHNS_V3.csv")
+  orig.data$Subject_ID <- c(1:nrow(orig.data))
+  n.participants <- nrow(orig.data)
+  
+  num.imp <-10 # Set number of imputations
+  num.knots <- 3 # set 0 for linear predictions of continous variables
+  imputed.data <- aregImpute(~AGE+GENDER+BMI+HEIGHT+WEIGHT+TC+HDL_C+SBP+DBP+SMOKING+GLUCOSE+DM+WBC+TG
                              , orig.data, n.impute=num.imp, nk=num.knots, x=T)
-imputed.dataset <- data.frame()
-for(j in 1:num.imp) {  
-  print(j)
-  completed <- orig.data
-  imputed <- impute.transcan(imputed.data, imputation = j, data = orig.data, list.out=TRUE, pr=FALSE, check = FALSE)
-  completed[names(imputed)] <- imputed # Replace variables from the original dataset with imputed values
-  imputed.dataset <- rbind(imputed.dataset, as.data.frame(completed))
-}  
-
-
-# Save data set
-write.csv(imputed.dataset, Imp_filepath, row.names = F)
-
-
+  imputed.dataset <- data.frame()
+  for(j in 1:num.imp) {  
+    print(j)
+    completed <- orig.data
+    imputed <- impute.transcan(imputed.data, imputation = j, data = orig.data, list.out=TRUE, pr=FALSE, check = FALSE)
+    completed[names(imputed)] <- imputed # Replace variables from the original dataset with imputed values
+    imputed.dataset <- rbind(imputed.dataset, as.data.frame(completed))
+  }
+  
+  
+  # Save data set
+  write.csv(imputed.dataset, Imp_filepath, row.names = F)
+}
 
 
 ###debug

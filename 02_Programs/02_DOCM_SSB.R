@@ -542,9 +542,11 @@ write.csv(cea_table, paste("03_Output/cea_table_", seed, intervention, n.cycle, 
 
 byvars<-c("age_cat","GENDER")
 
-summary_by<-calc_summary_by(byvars, diff_timehoriz_sub)
+summary_by_Policy<-calc_summary_by_Policy(byvars, sim_out_Policy_sub)
+summary_by_No_Policy<-calc_summary_by_No_Policy(byvars, sim_out_No_Policy_sub)
 
-write.csv(summary_by[1], paste("03_Output/summary_by_", seed, intervention, n.cycle,  "yrs_",  Sys.Date(),  ".csv", sep = ""))
+write.csv(summary_by_Policy[1], paste("03_Output/summary_by_Policy_", seed, intervention, n.cycle,  "yrs_",  Sys.Date(),  ".csv", sep = ""))
+write.csv(summary_by_No_Policy[1], paste("03_Output/summary_by_No_Policy_", seed, intervention, n.cycle,  "yrs_",  Sys.Date(),  ".csv", sep = ""))
 
 write.csv(summary_by[1], paste("03_Output/pop_summary_by_", seed, intervention, n.cycle, "yrs_",  Sys.Date(), ".csv", sep = ""))
 

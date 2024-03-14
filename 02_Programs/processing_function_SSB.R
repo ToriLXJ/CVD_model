@@ -126,7 +126,69 @@ calc_summary_by <- function( byvar, diff_timehoriz_sub){
   return (list(summaryby, summaryby_pop))
 }
 
+#############Policy
+calc_summary_by_Policy <- function( byvar, sim_out_Policy_sub){
+  Policy_summaryby<-NULL
+  Policy_summaryby_pop<-NULL
+  for (n in 1:length(byvars)){
+    a=byvar[n]
+    b<-unique(data_for_analysis[,a])
+    for (i in b){
+      
+      ##debug
+      sim_out_Policy_sub = sim_out_Policy[data_for_analysis[,a]==i,,]
+      design_subsample = subset(design_sample, get(a)==i)
+      n.subsample_Policy <- dim(sim_out_Policy_sub)
+      
+      # Calculate population count
+      CHNS_sub <- subset(data_for_analysis, get(a)==i) 
+      pop_counts = as.numeric(dplyr::count(CHNS_sub, wt=WT_TOTAL)/100)
+      Policy_subsummary2 = calc_summary(sim_out_Policy_sub, vars, n.sim, n.subsample_Policy, design_subsample)
+      Policy_subsummary2pop<-Policy_subsummary2
+      Policy_subsummary2pop[, -1]=Policy_subsummary2[, -1]*pop_counts
+      Policy_subsummary2[,"cat"]<-i
+      Policy_subsummary2[,"catvar"]<-a
+      Policy_subsummary2pop[,"cat"]<-i
+      Policy_subsummary2pop[,"catvar"]<-a
+      Policy_summaryby<-rbind(Policy_summaryby,  Policy_subsummary2)
+      Policy_summaryby_pop<-rbind(Policy_summaryby,  Policy_subsummary2pop)
+    }
+    
+  }
+  return (list(Policy_summaryby, Policy_summaryby_pop))
+}
 
+#################No Policy
+calc_summary_by_No_Policy <- function( byvar, sim_out_No_Policy_sub){
+  No_Policy_summaryby<-NULL
+  No_Policy_summaryby_pop<-NULL
+  for (n in 1:length(byvars)){
+    a=byvar[n]
+    b<-unique(data_for_analysis[,a])
+    for (i in b){
+      
+      ##debug
+      sim_out_No_Policy_sub = sim_out_No_Policy[data_for_analysis[,a]==i,,]
+      design_subsample = subset(design_sample, get(a)==i)
+      n.subsample_No_Policy <- dim(sim_out_No_Policy_sub)
+      
+      # Calculate population count
+      CHNS_sub <- subset(data_for_analysis, get(a)==i) 
+      pop_counts = as.numeric(dplyr::count(CHNS_sub, wt=WT_TOTAL)/100)
+      No_Policy_subsummary2 = calc_summary(sim_out_No_Policy_sub, vars, n.sim, n.subsample_No_Policy, design_subsample)
+      No_Policy_subsummary2pop<-No_Policy_subsummary2
+      No_Policy_subsummary2pop[, -1]=No_Policy_subsummary2[, -1]*pop_counts
+      No_Policy_subsummary2[,"cat"]<-i
+      No_Policy_subsummary2[,"catvar"]<-a
+      No_Policy_subsummary2pop[,"cat"]<-i
+      No_Policy_subsummary2pop[,"catvar"]<-a
+      No_Policy_summaryby<-rbind(No_Policy_summaryby,  No_Policy_subsummary2)
+      No_Policy_summaryby_pop<-rbind(No_Policy_summaryby,  No_Policy_subsummary2pop)
+    }
+    
+  }
+  return (list(No_Policy_summaryby, No_Policy_summaryby_pop))
+}
 calc_allsim_by <- function( byvar, vars, diff_timehoriz_sub){
   allsummaryby<-NULL
   for (n in 1:length(byvars)){

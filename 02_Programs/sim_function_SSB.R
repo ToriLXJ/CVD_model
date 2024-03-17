@@ -69,15 +69,16 @@ run_sim <- function(s, intervention) {
   sim_out_t[,"Incident First Stroke"]<-0
   sim_out_t[,"Incident Recurrent CHD"]<-0
   sim_out_t[,"Incident Recurrent Stroke"]<-0
+  sim_out_t[,"Incident CHD+Stroke"] <- 0
+  sim_out_t[,"Incident Stroke+CHD"] <- 0
+  
   sim_out_t[,"Incident CHD"]<-0
   sim_out_t[,"Incident Stroke"]<-0
-  sim_out_t[,"Death"] <- 0
   sim_out_t[,"CHD_Death"]<- 0
   sim_out_t[,"Stroke_Death"]<- 0
   sim_out_t[,"DM_Death"]<- 0
   sim_out_t[,"Non_DM_Non_CVD_Death"]<- 0
-  sim_out_t[,"Incident CHD+Stroke"] <- 0
-  sim_out_t[,"Incident Stroke+CHD"] <- 0
+  sim_out_t[,"Death"] <- 0
   
   
   ########################################
@@ -221,18 +222,46 @@ run_sim <- function(s, intervention) {
     
     
     #Markov State #1: "No CVD, No Diabetes"
-    p.H.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])  ##1个  -RR；看原模型的概率值对比
+    p.H.2.death <- p.death
+    p.H.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)  ##1个  -RR；看原模型的概率值对比
     p.H.2.initial_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_prob"])
     p.H.2.initial_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_prob"])
-    p.H.2.H <- ifelse((p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke + p.death) > 1, 0,
-                      1 - (p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke + p.death))
+    
+    # 如果和大于1
+    if (any((p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke) > 1)) {
+      # 概率更新
+      p.H.2.death <- p.H.2.death / (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
+      p.H.2.DM <- p.H.2.DM / (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
+      p.H.2.initial_CHD <- p.H.2.initial_CHD / (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
+      p.H.2.initial_Stroke <- p.H.2.initial_Stroke / (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
+    } else {
+      # 否则与原始值相同
+      p.H.2.death <- p.H.2.death
+      p.H.2.DM <- p.H.2.DM
+      p.H.2.initial_CHD <- p.H.2.initial_CHD
+      p.H.2.initial_Stroke <- p.H.2.initial_Stroke
+    }
+    
+    p.H.2.H <- 1 - (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
     
     #Markov State #2: "No CVD, With Diabetes"
     p.DM.2.death <- (1-exp(-(p.death+p.death.DM)))
     p.DM.2.initial_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_prob"])
     p.DM.2.initial_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_prob"])
-    p.DM.2.DM <- as.numeric(ifelse((p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death) > 1, 0,
-                                   1 - (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)))
+    
+    # 如果和大于1
+    if (any((p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death) > 1)) {
+      # 概率更新
+      p.DM.2.death <- p.DM.2.death / (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
+      p.DM.2.initial_CHD <- p.DM.2.initial_CHD / (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
+      p.DM.2.initial_Stroke <- p.DM.2.initial_Stroke / (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
+    } else {
+      # 否则与原始值相同
+      p.DM.2.death <- p.DM.2.death
+      p.DM.2.initial_CHD <- p.DM.2.initial_CHD
+      p.DM.2.initial_Stroke <- p.DM.2.initial_Stroke
+    }
+    p.DM.2.DM <- 1 - (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
     
     #Markov State #3: "First Stroke"
     p.initial_Stroke.2.death <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, (1-exp(-(p.death+p.death.Stroke+p.death.DM))), (1-exp(-(p.death+p.death.Stroke)))))
@@ -249,36 +278,90 @@ run_sim <- function(s, intervention) {
     p.Stroke.2.Stroke_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
     p.Stroke.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_stroke_prob"])
     p.Stroke.2.death <- (1-exp(-(p.death+p.death.Stroke)))
-    p.Stroke.2.Stroke <- as.numeric(ifelse((p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death) > 1, 0,
-                                           1 - (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)))
+    
+    # 如果和大于1
+    if (any((p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death) > 1)) {
+      # 概率更新
+      p.Stroke.2.DM <- p.Stroke.2.DM / (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
+      p.Stroke.2.Stroke_CHD <- p.Stroke.2.Stroke_CHD / (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
+      p.Stroke.2.sub_Stroke <- p.Stroke.2.sub_Stroke / (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
+      p.Stroke.2.death <- p.Stroke.2.death / (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
+    } else {
+      # 否则与原始值相同
+      p.Stroke.2.DM <- p.Stroke.2.DM
+      p.Stroke.2.Stroke_CHD <- p.Stroke.2.Stroke_CHD
+      p.Stroke.2.sub_Stroke <- p.Stroke.2.sub_Stroke
+      p.Stroke.2.death <- p.Stroke.2.death
+    }
+    
+    p.Stroke.2.Stroke <- 1 - (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
+    
     
     #Markov State #6: "CHD History, No Diabetes"
     p.CHD.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
     p.CHD.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_CHD_prob"])
     p.CHD.2.CHD_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
     p.CHD.2.death <- (1-exp(-(p.death+p.death.CHD)))
-    p.CHD.2.CHD <- as.numeric(ifelse((p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death) > 1, 0,
-                                     1 - (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)))
+    
+    # 如果和大于1
+    if (any((p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death) > 1)) {
+      # 概率更新
+      p.CHD.2.DM <- p.CHD.2.DM / (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
+      p.CHD.2.sub_CHD <- p.CHD.2.sub_CHD / (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
+      p.CHD.2.CHD_Stroke <- p.CHD.2.CHD_Stroke / (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
+      p.CHD.2.death <- p.CHD.2.death / (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
+    } else {
+      # 否则与原始值相同
+      p.CHD.2.DM <- p.CHD.2.DM
+      p.CHD.2.sub_CHD <- p.CHD.2.sub_CHD
+      p.CHD.2.CHD_Stroke <- p.CHD.2.CHD_Stroke
+      p.CHD.2.death <- p.CHD.2.death
+    }
+    
+    p.CHD.2.CHD <- 1 - (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
     
     #Markov State #7: "Stroke History, With Diabetes"
     p.Stroke_DM.2.Stroke_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
     p.Stroke_DM.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_stroke_prob"])
     p.Stroke_DM.2.death <- (1-exp(-(p.death+p.death.Stroke+p.death.DM)))
-    p.Stroke_DM.2.Stroke_DM <- as.numeric(ifelse((p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke) > 1, 0,
-                                                 1 - (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)))
+    
+    # 如果和大于1
+    if (any((p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke) > 1)) {
+      # 概率更新
+      p.Stroke_DM.2.Stroke_CHD <- p.Stroke_DM.2.Stroke_CHD / (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
+      p.Stroke_DM.2.sub_Stroke <- p.Stroke_DM.2.sub_Stroke / (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
+      p.Stroke_DM.2.death <- p.Stroke_DM.2.death / (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
+    } else {
+      # 否则与原始值相同
+      p.Stroke_DM.2.Stroke_CHD <- p.Stroke_DM.2.Stroke_CHD
+      p.Stroke_DM.2.sub_Stroke <- p.Stroke_DM.2.sub_Stroke
+      p.Stroke_DM.2.death <- p.Stroke_DM.2.death
+    }
+    p.Stroke_DM.2.Stroke_DM <- 1 - (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
     
     #Markov State #8: "CHD History, With Diabetes"
     p.CHD_DM.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_CHD_prob"])
     p.CHD_DM.2.CHD_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
     p.CHD_DM.2.death <- (1-exp(-(p.death+p.death.CHD+p.death.DM)))
-    p.CHD_DM.2.CHD_DM <- as.numeric(ifelse((p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke) > 1, 0,
-                                           1 - (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)))
     
-    #Markov State #9:"Subsequent Stroke" 
+    # 如果和大于1
+    if (any((p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke) > 1)) {
+      # 概率更新
+      p.CHD_DM.2.sub_CHD <- p.CHD_DM.2.sub_CHD / (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
+      p.CHD_DM.2.CHD_Stroke <- p.CHD_DM.2.CHD_Stroke / (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
+      p.CHD_DM.2.death <- p.CHD_DM.2.death / (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
+    } else {
+      # 否则与原始值相同
+      p.CHD_DM.2.sub_CHD <- p.CHD_DM.2.sub_CHD
+      p.Stroke_DM.2.sub_Stroke <- p.Stroke_DM.2.sub_Stroke
+      p.CHD_DM.2.death <- p.CHD_DM.2.death
+    }
+    p.CHD_DM.2.CHD_DM <- 1 - (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
+    
+    #Markov State #9:"Recurrent Stroke" 
     p.sub_Stroke.2.death <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, (1-exp(-(p.death+p.death.Stroke+p.death.DM))), (1-exp(-(p.death+p.death.Stroke)))))
-    p.sub_Stroke.2.Stroke_No_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 0, 1 - p.sub_Stroke.2.death))
+    p.sub_Stroke.2.Stroke_No_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 0, 1-p.sub_Stroke.2.death))#两次stroke
     p.sub_Stroke.2.Stroke_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 1 - p.sub_Stroke.2.death, 0))
-    
     
     #Markov State #10:"Subsequent CHD" 
     p.sub_CHD.2.death <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, (1-exp(-(p.death+p.death.CHD+p.death.DM))), (1-exp(-(p.death+p.death.CHD)))))
@@ -298,16 +381,36 @@ run_sim <- function(s, intervention) {
     #Markov state #13:"Stroke&CHD history, No diabetes"
     p.CVD_No_DM.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
     p.CVD_No_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke))
-    p.CVD_No_DM.2.CVD_No_DM <- as.numeric(ifelse((p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death) > 1, 0,
-                                                 1 - (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)))
+    
+    # 如果和大于1
+    if (any((p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death) > 1)) {
+      # 概率更新
+      p.CVD_No_DM.2.DM <- p.CVD_No_DM.2.DM / (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)
+      p.CVD_No_DM.2.death <- p.CVD_No_DM.2.death / (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)
+    } else {
+      # 否则与原始值相同
+      p.CVD_No_DM.2.DM <- p.CVD_No_DM.2.DM
+      p.CVD_No_DM.2.death <- p.CVD_No_DM.2.death
+    }
+    
+    p.CVD_No_DM.2.CVD_No_DM <- 1 - (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)
     
     #Markov state #14:"Stroke&CHD history, With diabetes"
     p.CVD_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke+p.death.DM))
-    p.CVD_DM.2.CVD_DM <- as.numeric(ifelse((p.CVD_DM.2.death) > 1, 0,
-                                           1 - p.CVD_DM.2.death))
+    # 如果和大于1
+    if (any((p.CVD_DM.2.death) > 1)) {
+      # 概率更新
+      p.CVD_DM.2.death <- 1
+    } else {
+      # 否则与原始值相同
+      p.CVD_DM.2.death <- p.CVD_DM.2.death
+    }
+    
+    p.CVD_DM.2.CVD_DM <- 1 - p.CVD_DM.2.death
     
     #关于to death的问题：recurrent chd/stroke; chd&stroke都是GBD里面的数据
     #比如原来的模型中，recurrent chd to death和chd to death的概率是一样的，但在现实情况中感觉不是很合理
+    
     
     ###################################################################################  
     ####2.5 Assign transition probablities to the transition matrix ##########
@@ -436,6 +539,8 @@ run_sim <- function(s, intervention) {
       sim_out_t[,"state"] == "Stroke&CHD History, With Diabetes" ~ p.CVD_DM.2.death,
       TRUE ~rep(1, n.individual) 
     )
+    
+    
     # Check that all transition probabilities add to 1 (rounded to 3 digits)
     #if (sum(round(rowSums(p.transition),3)!=1) != 0) {
     #p_sums = round(rowSums(p.transition),3)
@@ -443,12 +548,9 @@ run_sim <- function(s, intervention) {
     #stop("Transition probabilities do not add to 1. ", paste("Simulation", s, ", Time", t, ". "), "State(s) with error: ", error_out)
     #}
     #Transition to the next health state 
-
-
     
     sim_out_t[,"state"]<- apply(p.transition, 1, function(x) sample(name.health.state, 1, prob = x))
     
-   
     sim_out_t[,"DM"] <- ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes","Stroke&CHD History, With Diabetes"), 1, 
                                ifelse(sim_out_t[,"state"]== "DM_Death", 1, 
                                       ifelse(rep(data_for_analysis$GLUCOSE, n.loop) > 126, 1,0)))
@@ -545,3 +647,5 @@ run_sim <- function(s, intervention) {
     summarize_at(Out_variables[-1], mean, na.rm=TRUE)
   return(sim_out_mean)
 }
+
+

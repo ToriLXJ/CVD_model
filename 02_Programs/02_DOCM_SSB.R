@@ -231,7 +231,7 @@ data_for_analysis$WT_TOTAL[data_for_analysis$AGE>=95 & data_for_analysis$GENDER=
 
 ##Initial health states.
 name.health.state <- c("No CVD, No Diabetes", "No CVD, With Diabetes", "First Stroke", "First CHD",
-                       "CHD History, No Diabetes", "CHD History, With Diabetes","Stroke History, No Diabetes", "Stroke History, With Diabetes", "Subsequent Stroke", "Subsequent CHD", "DM_Death","Stroke_Death", "CHD_Death", "Non_DM_Non_CVD_Death","Death") 
+                       "CHD History, No Diabetes", "CHD History, With Diabetes","Stroke History, No Diabetes", "Stroke History, With Diabetes","Subsequent Stroke", "Subsequent CHD", "CHD+Stroke","Stroke+CHD","Stroke&CHD History, No Diabetes","Stroke&CHD History, With Diabetes","DM_Death","Stroke_Death", "CHD_Death", "Non_DM_Non_CVD_Death","Death") 
 n.health.state <- length(name.health.state) # number of health state that individuals can transition over time
 name.death.states <- c("DM_Death", "Stroke_Death", "CHD_Death", "Non_DM_Non_CVD_Death","Death")
 

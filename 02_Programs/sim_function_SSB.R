@@ -46,7 +46,7 @@ run_sim <- function(s, intervention) {
   Input_variables <- c("Subject_ID","DEMO","GENDER", "AGE", "BMI","SBP","TC","SMOKING" ,"HDL_C", "DM","WBC","TG", "GLUCOSE","Obesity", "WEIGHT", "HEIGHT","CVD_history",
                        "DM_prob", "CHD_prob", "Stroke_prob","CHD_after_stroke_prob","Stroke_after_stroke_prob","Stroke_after_CHD_prob","CHD_after_CHD_prob","HRQOL_scores", "HCE_predict")
   # Define output variables
-  Out_variables<-c("Subject_ID","Incident DM","Incident CHD","Incident Stroke","Incident First CHD","Incident First Stroke","Incident Recurrent CHD","Incident Recurrent Stroke","Death","CHD_Death","Stroke_Death","DM_Death","Non_DM_Non_CVD_Death","Life Years","effect_disc", "HCE_disc", "Prod_cost", "Prod_cost_disc","Policy_cost", "Total_cost_health","Total_cost_societ" )
+  Out_variables<-c("Subject_ID","Incident DM","Incident CHD","Incident Stroke","Incident First CHD","Incident First Stroke","Incident Recurrent CHD","Incident Recurrent Stroke","Incident CHD+Stroke","Incident Stroke+CHD","Death","CHD_Death","Stroke_Death","DM_Death","Non_DM_Non_CVD_Death","Life Years","effect_disc", "HCE_disc", "Prod_cost", "Prod_cost_disc","Policy_cost", "Total_cost_health","Total_cost_societ" )
   #Set up initial values
   #replicate each individual in the data for n.loop times, to minimize stochastic error
   
@@ -76,7 +76,8 @@ run_sim <- function(s, intervention) {
   sim_out_t[,"Stroke_Death"]<- 0
   sim_out_t[,"DM_Death"]<- 0
   sim_out_t[,"Non_DM_Non_CVD_Death"]<- 0
-  
+  sim_out_t[,"Incident CHD+Stroke"] <- 0
+  sim_out_t[,"Incident Stroke+CHD"] <- 0
   
   
   ########################################
@@ -244,34 +245,34 @@ run_sim <- function(s, intervention) {
     p.initial_CHD.2.CHD_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 1 - p.initial_CHD.2.death, 0))
     
     #Markov State #5: "Stroke History, No Diabetes"
-    p.Stroke.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])
-    p.Stroke.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
+    p.Stroke.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
+    p.Stroke.2.Stroke_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
     p.Stroke.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_stroke_prob"])
     p.Stroke.2.death <- (1-exp(-(p.death+p.death.Stroke)))
-    p.Stroke.2.Stroke <- as.numeric(ifelse((p.Stroke.2.DM + p.Stroke.2.sub_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death) > 1, 0,
-                                           1 - (p.Stroke.2.DM + p.Stroke.2.sub_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)))
+    p.Stroke.2.Stroke <- as.numeric(ifelse((p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death) > 1, 0,
+                                           1 - (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)))
     
     #Markov State #6: "CHD History, No Diabetes"
-    p.CHD.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])
+    p.CHD.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
     p.CHD.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_CHD_prob"])
-    p.CHD.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
+    p.CHD.2.CHD_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
     p.CHD.2.death <- (1-exp(-(p.death+p.death.CHD)))
-    p.CHD.2.CHD <- as.numeric(ifelse((p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.sub_Stroke + p.CHD.2.death) > 1, 0,
-                                     1 - (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.sub_Stroke + p.CHD.2.death)))
+    p.CHD.2.CHD <- as.numeric(ifelse((p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death) > 1, 0,
+                                     1 - (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)))
     
     #Markov State #7: "Stroke History, With Diabetes"
-    p.Stroke_DM.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
+    p.Stroke_DM.2.Stroke_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
     p.Stroke_DM.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_stroke_prob"])
     p.Stroke_DM.2.death <- (1-exp(-(p.death+p.death.Stroke+p.death.DM)))
-    p.Stroke_DM.2.Stroke_DM <- as.numeric(ifelse((p.Stroke_DM.2.death + p.Stroke_DM.2.sub_CHD + p.Stroke_DM.2.sub_Stroke) > 1, 0,
-                                                 1 - (p.Stroke_DM.2.death + p.Stroke_DM.2.sub_CHD + p.Stroke_DM.2.sub_Stroke)))
+    p.Stroke_DM.2.Stroke_DM <- as.numeric(ifelse((p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke) > 1, 0,
+                                                 1 - (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)))
     
     #Markov State #8: "CHD History, With Diabetes"
     p.CHD_DM.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_CHD_prob"])
-    p.CHD_DM.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
+    p.CHD_DM.2.CHD_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
     p.CHD_DM.2.death <- (1-exp(-(p.death+p.death.CHD+p.death.DM)))
-    p.CHD_DM.2.CHD_DM <- as.numeric(ifelse((p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.sub_Stroke) > 1, 0,
-                                           1 - (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.sub_Stroke)))
+    p.CHD_DM.2.CHD_DM <- as.numeric(ifelse((p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke) > 1, 0,
+                                           1 - (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)))
     
     #Markov State #9:"Subsequent Stroke" 
     p.sub_Stroke.2.death <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, (1-exp(-(p.death+p.death.Stroke+p.death.DM))), (1-exp(-(p.death+p.death.Stroke)))))
@@ -284,6 +285,29 @@ run_sim <- function(s, intervention) {
     p.sub_CHD.2.CHD_No_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 0, 1 - p.sub_CHD.2.death))
     p.sub_CHD.2.CHD_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 1 - p.sub_CHD.2.death, 0))
     
+    #Markov State #11: chd after stroke(stroke+chd)
+    p.Stroke_CHD.2.death <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, (1-exp(-(p.death+p.death.CHD+p.death.DM))), (1-exp(-(p.death+p.death.CHD)))))
+    p.Stroke_CHD.2.Stroke_CHD_No_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 0, 1 - p.Stroke_CHD.2.death))
+    p.Stroke_CHD.2.Stroke_CHD_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 1 - p.Stroke_CHD.2.death, 0))
+    
+    #Markov State #12 stroke after chd(chd+stroke)
+    p.CHD_Stroke.2.death <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, (1-exp(-(p.death+p.death.DM+p.death.Stroke))), (1-exp(-(p.death+p.death.Stroke)))))
+    p.CHD_Stroke.2.CHD_Stroke_No_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 0, 1 - p.CHD_Stroke.2.death))
+    p.CHD_Stroke.2.CHD_Stroke_DM <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, 1 - p.CHD_Stroke.2.death, 0))
+    
+    #Markov state #13:"Stroke&CHD history, No diabetes"
+    p.CVD_No_DM.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
+    p.CVD_No_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke))
+    p.CVD_No_DM.2.CVD_No_DM <- as.numeric(ifelse((p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death) > 1, 0,
+                                                 1 - (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)))
+    
+    #Markov state #14:"Stroke&CHD history, With diabetes"
+    p.CVD_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke+p.death.DM))
+    p.CVD_DM.2.CVD_DM <- as.numeric(ifelse((p.CVD_DM.2.death) > 1, 0,
+                                           1 - p.CVD_DM.2.death))
+    
+    #关于to death的问题：recurrent chd/stroke; chd&stroke都是GBD里面的数据
+    #比如原来的模型中，recurrent chd to death和chd to death的概率是一样的，但在现实情况中感觉不是很合理
     
     ###################################################################################  
     ####2.5 Assign transition probablities to the transition matrix ##########
@@ -327,22 +351,74 @@ run_sim <- function(s, intervention) {
       TRUE ~ rep(0, n.individual)
     )
     
+    
     p.transition[,"Subsequent Stroke"] <- case_when(
       sim_out_t[,"state"] == "Stroke History, No Diabetes" ~ p.Stroke.2.sub_Stroke, 
       sim_out_t[,"state"] == "Stroke History, With Diabetes" ~ p.Stroke_DM.2.sub_Stroke, 
-      sim_out_t[,"state"] == "CHD History, No Diabetes" ~ p.CHD.2.sub_Stroke, 
-      sim_out_t[,"state"] == "CHD History, With Diabetes" ~ p.CHD_DM.2.sub_Stroke, 
       TRUE ~ rep(0, n.individual)
     )
     
     p.transition[,"Subsequent CHD"] <- case_when(
-      sim_out_t[,"state"] == "Stroke History, No Diabetes" ~ p.Stroke.2.sub_CHD, 
-      sim_out_t[,"state"] == "Stroke History, With Diabetes" ~ p.Stroke_DM.2.sub_CHD, 
       sim_out_t[,"state"] == "CHD History, No Diabetes" ~ p.CHD.2.sub_CHD, 
       sim_out_t[,"state"] == "CHD History, With Diabetes" ~ p.CHD_DM.2.sub_CHD, 
       TRUE ~ rep(0, n.individual)
     )
     
+    p.transition[,"Stroke+CHD"] <- case_when(
+      sim_out_t[,"state"] == "Stroke History, No Diabetes" ~ p.Stroke.2.Stroke_CHD,
+      sim_out_t[,"state"] == "Stroke History, With Diabetes" ~ p.Stroke_DM.2.Stroke_CHD,
+      TRUE ~ rep(0, n.individual)
+    )
+    
+    p.transition[,"CHD+Stroke"]<- case_when(
+      sim_out_t[,"state"] == "CHD History, No Diabetes" ~ p.CHD.2.CHD_Stroke,
+      sim_out_t[,"state"] == "CHD History, With Diabetes" ~ p.CHD_DM.2.CHD_Stroke,
+      TRUE ~ rep(0, n.individual)
+    )
+    
+    p.transition[,"Stroke&CHD History, No Diabetes"] <- case_when(
+      sim_out_t[,"state"] == "Stroke+CHD" ~ p.Stroke_CHD.2.Stroke_CHD_No_DM,
+      sim_out_t[,"state"] == "CHD+Stroke" ~ p.CHD_Stroke.2.CHD_Stroke_No_DM,
+      sim_out_t[,"state"] == "Stroke&CHD History, No Diabetes" ~ p.CVD_No_DM.2.CVD_No_DM,
+      TRUE ~ rep(0, n.individual)
+    )
+    
+    p.transition[,"Stroke&CHD History, With Diabetes"]<- case_when(
+      sim_out_t[,"state"] == "Stroke+CHD" ~ p.Stroke_CHD.2.Stroke_CHD_DM,
+      sim_out_t[,"state"] == "CHD+Stroke" ~ p.CHD_Stroke.2.CHD_Stroke_DM,
+      sim_out_t[,"state"] == "Stroke&CHD History, No Diabetes" ~ p.CVD_No_DM.2.DM,
+      sim_out_t[,"state"] == "Stroke&CHD History, With Diabetes" ~ p.CVD_DM.2.CVD_DM,
+      TRUE ~ rep(0, n.individual)
+    )
+    
+    
+    p.transition[,"DM_Death"] <- case_when(
+      sim_out_t[,"state"] %in% 
+        c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes","Stroke&CHD History, With Diabetes") ~ p.death.DM, 
+      sim_out_t[,"state"] == "DM_Death" ~ rep(1, n.individual),
+      TRUE ~ rep(0, n.individual)
+    )
+    
+    
+    p.transition[,"Stroke_Death"] <- case_when(
+      sim_out_t[,"state"] %in% 
+        c("First Stroke", "Subsequent Stroke", "Stroke History, No Diabetes", "Stroke History, With Diabetes","CHD+Stroke","Stroke&CHD History, With Diabetes","Stroke&CHD History, No Diabetes") ~ p.death.Stroke, 
+      sim_out_t[,"state"] == "Stroke_Death" ~ rep(1, n.individual),
+      TRUE ~ rep(0, n.individual)
+    )
+    
+    p.transition[,"CHD_Death"] <- case_when(
+      sim_out_t[,"state"] %in%
+        c("First CHD", "Subsequent CHD", "CHD History, No Diabetes", "CHD History, With Diabetes","Stroke+CHD","Stroke&CHD History, With Diabetes","Stroke&CHD History, No Diabetes") ~ p.death.CHD,
+      sim_out_t[,"state"] == "CHD_Death" ~ rep(1, n.individual),
+      TRUE ~ rep(0, n.individual)
+    )
+    
+    p.transition[,"Non_DM_Non_CVD_Death"] <- case_when(
+      sim_out_t[,"state"] %in% c("DM_Death", "Stroke_Death", "CHD_Death") ~ rep(0, n.individual),
+      sim_out_t[,"state"] == "Non_DM_Non_CVD_Death" ~ rep(1, n.individual),
+      TRUE ~ p.death
+    )
     p.transition[,"Death"] <- case_when(
       sim_out_t[,"state"] == "No CVD, No Diabetes" ~ p.death, 
       sim_out_t[,"state"] == "No CVD, With Diabetes" ~ p.DM.2.death, 
@@ -354,43 +430,12 @@ run_sim <- function(s, intervention) {
       sim_out_t[,"state"] == "CHD History, With Diabetes" ~ p.CHD_DM.2.death, 
       sim_out_t[,"state"] == "Subsequent Stroke" ~ p.sub_Stroke.2.death, 
       sim_out_t[,"state"] == "Subsequent CHD" ~ p.sub_CHD.2.death, 
+      sim_out_t[,"state"] == "CHD+Stroke" ~ p.CHD_Stroke.2.death,
+      sim_out_t[,"state"] == "Stroke+CHD" ~ p.Stroke_CHD.2.death,
+      sim_out_t[,"state"] == "Stroke&CHD History, No Diabetes" ~ p.CVD_No_DM.2.death,
+      sim_out_t[,"state"] == "Stroke&CHD History, With Diabetes" ~ p.CVD_DM.2.death,
       TRUE ~rep(1, n.individual) 
     )
-    
-    p.transition[,"DM_Death"] <- case_when(
-      sim_out_t[,"state"] %in% 
-        c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes") ~ p.death.DM, 
-      sim_out_t[,"state"] == "DM_Death" ~ rep(1, n.individual),
-      TRUE ~ rep(0, n.individual)
-    )
-    
-    
-    p.transition[,"Stroke_Death"] <- case_when(
-      sim_out_t[,"state"] %in% 
-        c("First Stroke", "Subsequent Stroke", "Stroke History, No Diabetes", "Stroke History, With Diabetes") ~ p.death.Stroke, 
-      sim_out_t[,"state"] == "Stroke_Death" ~ rep(1, n.individual),
-      TRUE ~ rep(0, n.individual)
-    )
-    
-    p.transition[,"CHD_Death"] <- case_when(
-      sim_out_t[,"state"] %in%
-        c("First CHD", "Subsequent CHD", "CHD History, No Diabetes", "CHD History, With Diabetes") ~ p.death.CHD,
-      sim_out_t[,"state"] %in% c("First CHD with RVSC", "Subsequent CHD with RVSC") ~ p.death.CHD,
-      sim_out_t[,"state"] == "CHD_Death" ~ rep(1, n.individual),
-      TRUE ~ rep(0, n.individual)
-    )
-    
-    p.transition[,"Non_DM_Non_CVD_Death"] <- case_when(
-      sim_out_t[,"state"] %in% c("DM_Death", "Stroke_Death", "CHD_Death") ~ rep(0, n.individual),
-      sim_out_t[,"state"] == "Non_DM_Non_CVD_Death" ~ rep(1, n.individual),
-      TRUE ~ p.death
-    )
-    
-    # p.transition 是你的转移概率矩阵
-    
-    # 对转移概率矩阵的每一行进行归一化处理
-    p.transition_normalized <- t(apply(p.transition, 1, function(row) row / sum(row)))
-    p.transition <- p.transition_normalized
     # Check that all transition probabilities add to 1 (rounded to 3 digits)
     #if (sum(round(rowSums(p.transition),3)!=1) != 0) {
     #p_sums = round(rowSums(p.transition),3)
@@ -403,13 +448,14 @@ run_sim <- function(s, intervention) {
     
     sim_out_t[,"state"]<- apply(p.transition, 1, function(x) sample(name.health.state, 1, prob = x))
     
-    sim_out_t[,"DM"] <- ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes"), 1, 
+   
+    sim_out_t[,"DM"] <- ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes","Stroke&CHD History, With Diabetes"), 1, 
                                ifelse(sim_out_t[,"state"]== "DM_Death", 1, 
                                       ifelse(rep(data_for_analysis$GLUCOSE, n.loop) > 126, 1,0)))
     
     sim_out_t[,"CVD_history"] <- ifelse(sim_out_t[,"CVD_history"]==1, 1,
                                         ifelse( sim_out_t[,"state"] %in% c("First Stroke", "First CHD", "Stroke History, No Diabetes", "Stroke History, With Diabetes","CHD History, No Diabetes", "CHD History, With Diabetes",
-                                                                           "Subsequent Stroke", "Subsequent CHD"),1, 0))
+                                                                           "Subsequent Stroke", "Subsequent CHD","CHD+Stroke","Stroke+CHD","Stroke&CHD History, No Diabetes","Stroke&CHD History, With Diabetes"),1, 0))
     
     sim_out_t[,"BMI"] <- ifelse(sim_out_t[,"state"]== "Death",NA,sim_out_t[,"BMI"])
     sim_out_t[,"Obesity"] <- ifelse(sim_out_t[,"BMI"] < 30, 0, 
@@ -420,9 +466,9 @@ run_sim <- function(s, intervention) {
     #将处于健康状态QALY的设置为1，对于有DM和CVD的QALY模拟效用分布
     HRQOL_scores_t1<- ifelse(sim_out_t[,"state"]%in% c("First Stroke"), u_stroke_sim[s], 
                              ifelse(sim_out_t[,"state"]%in% c("First CHD"), u_CHD_sim[s],
-                                    ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes"),u_DM_sim[s],
-                                           ifelse(sim_out_t[,"state"]%in% c("Subsequent Stroke"), u_post_stroke_sim[s],
-                                                  ifelse(sim_out_t[,"state"]%in% c("Subsequent CHD"), u_post_CHD_sim[s],
+                                    ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes","Stroke&CHD History, With Diabetes"),u_DM_sim[s],
+                                           ifelse(sim_out_t[,"state"]%in% c("Subsequent Stroke","CHD+Stroke"), u_post_stroke_sim[s],
+                                                  ifelse(sim_out_t[,"state"]%in% c("Subsequent CHD","Stroke+CHD"), u_post_CHD_sim[s],
                                                          ifelse(sim_out_t[,"state"]== "Death", 0, 1))))))
     sim_out_t[,"HRQOL_scores"] =sim_out_t[,"HRQOL_scores"]+HRQOL_scores_t1
     sim_out_t[,"effect_disc"] <- sim_out_t[,"effect_disc"]+HRQOL_scores_t1/((1+beta_QALY)^(t-1))
@@ -430,21 +476,21 @@ run_sim <- function(s, intervention) {
     
     #将处于健康或死亡状态的HCE设置为0，有DM或者CVD的则模拟费用分布
     HCE_DM_inpatient_t1 <- calc_HCE_DM_inpatient(raw.input.data, HCE_DM_inpatient_parameter_sim[,s])
-
+    
     HCE_DM_outpatient_t1 <- calc_HCE_DM_outpatient(raw.input.data, HCE_DM_outpatient_parameter_sim[,s])
     
     HCE_DM_t1 <- HCE_DM_inpatient_t1 + HCE_DM_outpatient_t1
     
-    HCE_predict_t1 <- ifelse(sim_out_t[,"state"]%in% c("First Stroke", "Subsequent Stroke"), c_stroke_sim[s], 
-                             ifelse(sim_out_t[,"state"]%in% c("First CHD", "Subsequent CHD"), c_CHD_sim[s],
-                                    ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes"), HCE_DM_t1,0)))
+    HCE_predict_t1 <- ifelse(sim_out_t[,"state"]%in% c("First Stroke", "Subsequent Stroke","CHD+Stroke"), c_stroke_sim[s], 
+                             ifelse(sim_out_t[,"state"]%in% c("First CHD", "Subsequent CHD","Stroke+CHD"), c_CHD_sim[s],
+                                    ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes","Stroke&CHD History, With Diabetes"), HCE_DM_t1,0)))
     sim_out_t[,"HCE_predict"]=sim_out_t[,"HCE_predict"]+HCE_predict_t1
     sim_out_t[,"HCE_disc"] <- sim_out_t[,"HCE_disc"]+HCE_predict_t1/((1+beta_cost)^(t-1))
     
     #ppp Add productivity costs associated with stroke, and CHD respectively 
-    Prod_cost_t1<- ifelse(sim_out_t[,"state"]%in% c("First Stroke", "Subsequent Stroke"),c_prod_stroke_sim[s], 
-                          ifelse(sim_out_t[,"state"]%in% c("First CHD", "Subsequent CHD"), c_prod_CHD_sim[s],
-                                 ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes"), c_prod_DM_sim[s],      
+    Prod_cost_t1<- ifelse(sim_out_t[,"state"]%in% c("First Stroke", "Subsequent Stroke","CHD+Stroke"),c_prod_stroke_sim[s], 
+                          ifelse(sim_out_t[,"state"]%in% c("First CHD", "Subsequent CHD","Stroke+CHD"), c_prod_CHD_sim[s],
+                                 ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes","Stroke&CHD History, With Diabetes"), c_prod_DM_sim[s],      
                                         ifelse(sim_out_t[,"state"]== "Death", 0, 0))))
     
     sim_out_t[,"Prod_cost"] =as.numeric(sim_out_t[,"Prod_cost"])+Prod_cost_t1
@@ -468,7 +514,7 @@ run_sim <- function(s, intervention) {
     
     sim_out_t[,"Life Years"]<-sim_out_t[,"Life Years"]+(sim_out_t[,"state"]!="Death")
     
-    sim_out_t[,"Incident DM"] = sim_out_t[,"Incident DM"]+ ifelse(sim_out_t[,"state"]=="No CVD, With Diabetes"|sim_out_t[,"state"]== "Stroke History, With Diabetes"|sim_out_t[,"state"]=="CHD History, With Diabetes",1, 0)
+    sim_out_t[,"Incident DM"] = sim_out_t[,"Incident DM"]+ ifelse(sim_out_t[,"state"]=="No CVD, With Diabetes"|sim_out_t[,"state"]== "Stroke History, With Diabetes"|sim_out_t[,"state"]=="CHD History, With Diabetes"|sim_out_t[,"state"]=="Stroke&CHD History, With Diabetes",1, 0)
     
     sim_out_t[,"Incident First CHD"] = sim_out_t[,"Incident First CHD"]+ ifelse(sim_out_t[,"state"]=="First CHD",1, 0)
     sim_out_t[,"Incident First Stroke"] = sim_out_t[,"Incident First Stroke"]+ ifelse(sim_out_t[,"state"]=="First Stroke",1, 0)
@@ -476,8 +522,12 @@ run_sim <- function(s, intervention) {
     sim_out_t[,"Incident Recurrent CHD"] = sim_out_t[,"Incident Recurrent CHD"]+ ifelse(sim_out_t[,"state"]=="Recurrent CHD",1, 0)
     sim_out_t[,"Incident Recurrent Stroke"] = sim_out_t[,"Incident Recurrent Stroke"]+ ifelse(sim_out_t[,"state"]=="Recurrent Stroke",1, 0)
     
-    sim_out_t[,"Incident CHD"] = sim_out_t[,"Incident First CHD"] + sim_out_t[,"Incident Recurrent CHD"]
-    sim_out_t[,"Incident Stroke"] = sim_out_t[,"Incident First Stroke"] + sim_out_t[,"Incident Recurrent Stroke"]
+    sim_out_t[,"Incident Stroke+CHD"] = sim_out_t[,"Incident Stroke+CHD"]+ ifelse(sim_out_t[,"state"]== "Stroke+CHD",1,0)
+    sim_out_t[,"Incident CHD+Stroke"] = sim_out_t[,"Incident CHD+Stroke"] + ifelse(sim_out_t[,"state"]== "CHD+Stroke",1,0)
+    
+    
+    sim_out_t[,"Incident CHD"] = sim_out_t[,"Incident First CHD"] + sim_out_t[,"Incident Recurrent CHD"] + sim_out_t[,"Incident Stroke+CHD"] + sim_out_t[,"Incident CHD+Stroke"]
+    sim_out_t[,"Incident Stroke"] = sim_out_t[,"Incident First Stroke"] + sim_out_t[,"Incident Recurrent Stroke"]+ sim_out_t[,"Incident Stroke+CHD"] + sim_out_t[,"Incident CHD+Stroke"]
     
     sim_out_t[,"Death"] <-  ifelse(sim_out_t[,"state"] %in% c("Non_DM_Non_CVD_Death", "CHD_Death", "Stroke_Death", "DM_Death"), 1,0)
     

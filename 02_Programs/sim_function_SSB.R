@@ -412,7 +412,7 @@ run_sim <- function(s, intervention) {
     
     #Markov state #13:"Stroke&CHD history, No diabetes"
     p.CVD_No_DM.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
-    p.CVD_No_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke))
+    p.CVD_No_DM.2.death <- (1-exp(-(p.death+(p.death.CHD+p.death.Stroke)/2)))
     p.CVD_No_DM.2.CVD_No_DM <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
     for (i in 1:n.individual){
@@ -431,7 +431,7 @@ run_sim <- function(s, intervention) {
     }
     
     #Markov state #14:"Stroke&CHD history, With diabetes"
-    p.CVD_DM.2.death <- (1-exp(-(p.death+p.death.CHD+p.death.Stroke+p.death.DM)))
+    p.CVD_DM.2.death <- (1-exp(-(p.death+(p.death.CHD+p.death.Stroke)/2+p.death.DM)))
     p.CVD_DM.2.CVD_DM <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
     for (i in 1:n.individual){

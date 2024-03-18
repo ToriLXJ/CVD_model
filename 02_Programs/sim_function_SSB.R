@@ -227,42 +227,60 @@ run_sim <- function(s, intervention) {
     p.H.2.initial_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_prob"])
     p.H.2.initial_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_prob"])
     original_sum <- numeric(n.individual)
+    p.H.2.H <- numeric(n.individual)
     #0318 中午 debug 修正概率和大于1的情况
-    for (i in 1:n.individual)
-      if((p.H.2.death[i]+p.H.2.DM[i]+p.H.2.initial_CHD[i]+p.H.2.initial_Stroke[i])>1) {
-        original_sum[i] <- p.H.2.death[i]+p.H.2.DM[i]+p.H.2.initial_CHD[i]+p.H.2.initial_Stroke[i]
-        p.H.2.death[i] <- p.H.2.death[i] / (original_sum[i])
-        p.H.2.DM[i] <- p.H.2.DM[i] / (original_sum[i])
-        p.H.2.initial_CHD[i] <- p.H.2.initial_CHD[i] / (original_sum[i])
-        p.H.2.initial_Stroke[i] <- p.H.2.initial_Stroke[i] / (original_sum[i])
-      }else{
-        p.H.2.death[i] <- p.H.2.death[i]
-        p.H.2.DM[i] <- p.H.2.DM[i]
-        p.H.2.initial_CHD[i] <- p.H.2.initial_CHD[i]
-        p.H.2.initial_Stroke[i] <- p.H.2.initial_Stroke[i]
+    #for (i in 1:n.individual)
+    #if((p.H.2.death[i]+p.H.2.DM[i]+p.H.2.initial_CHD[i]+p.H.2.initial_Stroke[i])>1) {
+    #original_sum[i] <- p.H.2.death[i]+p.H.2.DM[i]+p.H.2.initial_CHD[i]+p.H.2.initial_Stroke[i]
+    #p.H.2.death[i] <- p.H.2.death[i] / (original_sum[i])
+    #p.H.2.DM[i] <- p.H.2.DM[i] / (original_sum[i])
+    #p.H.2.initial_CHD[i] <- p.H.2.initial_CHD[i] / (original_sum[i])
+    #p.H.2.initial_Stroke[i] <- p.H.2.initial_Stroke[i] / (original_sum[i])
+    #p.H.2.H[i] <- 0
+    #}else{
+    #p.H.2.death[i] <- p.H.2.death[i]
+    #p.H.2.DM[i] <- p.H.2.DM[i]
+    #p.H.2.initial_CHD[i] <- p.H.2.initial_CHD[i]
+    #p.H.2.initial_Stroke[i] <- p.H.2.initial_Stroke[i]
+    #p.H.2.H[i] <- 1 - (p.H.2.death[i]+p.H.2.DM[i]+p.H.2.initial_CHD[i]+p.H.2.initial_Stroke[i])
+    #}
+    
+    for (i in 1:n.individual) {
+      if (!any(is.na(c(p.H.2.death[i], p.H.2.DM[i], p.H.2.initial_CHD[i], p.H.2.initial_Stroke[i])))) {
+        if((p.H.2.death[i] + p.H.2.DM[i] + p.H.2.initial_CHD[i] + p.H.2.initial_Stroke[i]) > 1) {
+          original_sum <- p.H.2.death[i] + p.H.2.DM[i] + p.H.2.initial_CHD[i] + p.H.2.initial_Stroke[i]
+          p.H.2.death[i] <- p.H.2.death[i] / original_sum
+          p.H.2.DM[i] <- p.H.2.DM[i] / original_sum
+          p.H.2.initial_CHD[i] <- p.H.2.initial_CHD[i] / original_sum
+          p.H.2.initial_Stroke[i] <- p.H.2.initial_Stroke[i] / original_sum
+          p.H.2.H[i] <- 0
+        } else {
+          p.H.2.H[i] <- 1 - (p.H.2.death[i] + p.H.2.DM[i] + p.H.2.initial_CHD[i] + p.H.2.initial_Stroke[i])
+        }
       }
-    p.H.2.H <- 1 - (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
-    
-    
+    }
     #Markov State #2: "No CVD, With Diabetes"
     p.DM.2.death <- (1-exp(-(p.death+p.death.DM)))
     p.DM.2.initial_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_prob"])
     p.DM.2.initial_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_prob"])
-    
+    p.DM.2.DM <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
-    for (i in 1:n.individual)
-      #计算个体总和
-      if((p.DM.2.initial_CHD[i] + p.DM.2.initial_Stroke[i] + p.DM.2.death[i]) > 1){
-        original_sum[i] <- p.DM.2.initial_CHD[i] + p.DM.2.initial_Stroke[i] + p.DM.2.death[i]
-        p.DM.2.death[i] <- p.DM.2.death / (original_sum[i])
-        p.DM.2.initial_CHD[i] <- p.DM.2.initial_CHD / (original_sum[i])
-        p.DM.2.initial_Stroke[i] <- p.DM.2.initial_Stroke / (original_sum[i])
-      }else{
-        p.DM.2.death[i] <- p.DM.2.death[i]
-        p.DM.2.initial_CHD[i] <- p.DM.2.initial_CHD[i]
-        p.DM.2.initial_Stroke[i] <- p.DM.2.initial_Stroke[i]
+    for (i in 1:n.individual){
+      if(!any(is.na(c(p.DM.2.initial_CHD[i] , p.DM.2.initial_Stroke[i] , p.DM.2.death[i])))){
+        if((p.DM.2.initial_CHD[i] + p.DM.2.initial_Stroke[i] + p.DM.2.death[i]) > 1){
+          original_sum[i] <- p.DM.2.initial_CHD[i] + p.DM.2.initial_Stroke[i] + p.DM.2.death[i]
+          p.DM.2.death[i] <- p.DM.2.death[i] / (original_sum[i])
+          p.DM.2.initial_CHD[i] <- p.DM.2.initial_CHD[i] / (original_sum[i])
+          p.DM.2.initial_Stroke[i] <- p.DM.2.initial_Stroke[i] / (original_sum[i])
+          p.DM.2.DM[i] <- 0
+        }else{
+          p.DM.2.death[i] <- p.DM.2.death[i]
+          p.DM.2.initial_CHD[i] <- p.DM.2.initial_CHD[i]
+          p.DM.2.initial_Stroke[i] <- p.DM.2.initial_Stroke[i]
+          p.DM.2.DM[i] <- 1 - (p.DM.2.initial_CHD[i] + p.DM.2.initial_Stroke[i] + p.DM.2.death[i])
+        }
       }
-    p.DM.2.DM <- 1 - (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
+    }
     
     #Markov State #3: "First Stroke"
     p.initial_Stroke.2.death <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, (1-exp(-(p.death+p.death.Stroke+p.death.DM))), (1-exp(-(p.death+p.death.Stroke)))))
@@ -279,88 +297,98 @@ run_sim <- function(s, intervention) {
     p.Stroke.2.Stroke_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
     p.Stroke.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_stroke_prob"])
     p.Stroke.2.death <- (1-exp(-(p.death+p.death.Stroke)))
-    
+    p.Stroke.2.Stroke <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
-    for (i in 1:n.individual)
-      #计算个体总和
-      if((p.Stroke.2.DM[i] + p.Stroke.2.Stroke_CHD[i] + p.Stroke.2.sub_Stroke[i] + p.Stroke.2.death[i])>1) {
-        original_sum[i] <- p.Stroke.2.DM[i] + p.Stroke.2.Stroke_CHD[i] + p.Stroke.2.sub_Stroke[i] + p.Stroke.2.death[i]
-        p.Stroke.2.DM[i] <- p.Stroke.2.DM[i] / (original_sum[i])
-        p.Stroke.2.Stroke_CHD[i] <- p.Stroke.2.Stroke_CHD[i] / (original_sum[i])
-        p.Stroke.2.sub_Stroke[i] <- p.Stroke.2.sub_Stroke[i] / (original_sum[i])
-        p.Stroke.2.death[i] <- p.Stroke.2.death[i] / (original_sum[i])
-      }else{
-        p.Stroke.2.DM[i] <- p.Stroke.2.DM[i]
-        p.Stroke.2.Stroke_CHD[i] <- p.Stroke.2.Stroke_CHD[i]
-        p.Stroke.2.sub_Stroke[i] <- p.Stroke.2.sub_Stroke[i]
-        p.Stroke.2.death[i] <- p.Stroke.2.death[i]
+    for (i in 1:n.individual) {
+      if (!any(is.na(c(p.Stroke.2.DM[i] , p.Stroke.2.Stroke_CHD[i] , p.Stroke.2.sub_Stroke[i] , p.Stroke.2.death[i])))) {
+        if((p.Stroke.2.DM[i] + p.Stroke.2.Stroke_CHD[i] + p.Stroke.2.sub_Stroke[i] + p.Stroke.2.death[i])>1) {
+          original_sum[i] <- p.Stroke.2.DM[i] + p.Stroke.2.Stroke_CHD[i] + p.Stroke.2.sub_Stroke[i] + p.Stroke.2.death[i]
+          p.Stroke.2.DM[i] <- p.Stroke.2.DM[i] / (original_sum[i])
+          p.Stroke.2.Stroke_CHD[i] <- p.Stroke.2.Stroke_CHD[i] / (original_sum[i])
+          p.Stroke.2.sub_Stroke[i] <- p.Stroke.2.sub_Stroke[i] / (original_sum[i])
+          p.Stroke.2.death[i] <- p.Stroke.2.death[i] / (original_sum[i])
+          p.Stroke.2.Stroke[i] <- 0
+        }else{
+          p.Stroke.2.DM[i] <- p.Stroke.2.DM[i]
+          p.Stroke.2.Stroke_CHD[i] <- p.Stroke.2.Stroke_CHD[i]
+          p.Stroke.2.sub_Stroke[i] <- p.Stroke.2.sub_Stroke[i]
+          p.Stroke.2.death[i] <- p.Stroke.2.death[i]
+          p.Stroke.2.Stroke[i] <- 1 - (p.Stroke.2.DM[i] + p.Stroke.2.Stroke_CHD[i] + p.Stroke.2.sub_Stroke[i] + p.Stroke.2.death[i])
+        }
       }
-    
-    p.Stroke.2.Stroke <- 1 - (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
-    
+    }
     
     #Markov State #6: "CHD History, No Diabetes"
     p.CHD.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
     p.CHD.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_CHD_prob"])
     p.CHD.2.CHD_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
     p.CHD.2.death <- (1-exp(-(p.death+p.death.CHD)))
+    p.CHD.2.CHD <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
-    for (i in 1:n.individual)
-      #计算个体总和
-      if((p.CHD.2.DM[i] + p.CHD.2.sub_CHD[i] + p.CHD.2.CHD_Stroke[i] + p.CHD.2.death[i])>1) {
-        original_sum[i] <- p.CHD.2.DM[i] + p.CHD.2.sub_CHD[i] + p.CHD.2.CHD_Stroke[i] + p.CHD.2.death[i]
-        p.CHD.2.DM[i] <- p.CHD.2.DM[i] / (original_sum[i])
-        p.CHD.2.sub_CHD[i] <- p.CHD.2.sub_CHD[i] / (original_sum[i])
-        p.CHD.2.CHD_Stroke[i] <- p.CHD.2.CHD_Stroke[i] / (original_sum[i])
-        p.CHD.2.death[i] <- p.CHD.2.death[i] / (original_sum[i])
-      }else{
-        p.CHD.2.DM[i] <- p.CHD.2.DM[i]
-        p.CHD.2.sub_CHD[i] <- p.CHD.2.sub_CHD[i]
-        p.CHD.2.CHD_Stroke[i] <- p.CHD.2.CHD_Stroke[i]
-        p.CHD.2.death[i] <- p.CHD.2.death[i]
+    for (i in 1:n.individual){
+      if(!any(is.na(c(p.CHD.2.DM[i] , p.CHD.2.sub_CHD[i] , p.CHD.2.CHD_Stroke[i] , p.CHD.2.death[i])))){
+        if((p.CHD.2.DM[i] + p.CHD.2.sub_CHD[i] + p.CHD.2.CHD_Stroke[i] + p.CHD.2.death[i])>1) {
+          original_sum[i] <- p.CHD.2.DM[i] + p.CHD.2.sub_CHD[i] + p.CHD.2.CHD_Stroke[i] + p.CHD.2.death[i]
+          p.CHD.2.DM[i] <- p.CHD.2.DM[i] / (original_sum[i])
+          p.CHD.2.sub_CHD[i] <- p.CHD.2.sub_CHD[i] / (original_sum[i])
+          p.CHD.2.CHD_Stroke[i] <- p.CHD.2.CHD_Stroke[i] / (original_sum[i])
+          p.CHD.2.death[i] <- p.CHD.2.death[i] / (original_sum[i])
+          p.CHD.2.CHD[i] <- 0
+        }else{
+          p.CHD.2.DM[i] <- p.CHD.2.DM[i]
+          p.CHD.2.sub_CHD[i] <- p.CHD.2.sub_CHD[i]
+          p.CHD.2.CHD_Stroke[i] <- p.CHD.2.CHD_Stroke[i]
+          p.CHD.2.death[i] <- p.CHD.2.death[i]
+          p.CHD.2.CHD[i] <-1 - (p.CHD.2.DM[i] + p.CHD.2.sub_CHD[i] + p.CHD.2.CHD_Stroke[i] + p.CHD.2.death[i])
+        }
       }
-    
-    p.CHD.2.CHD <- 1 - (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
+    }
     
     #Markov State #7: "Stroke History, With Diabetes"
     p.Stroke_DM.2.Stroke_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
     p.Stroke_DM.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_stroke_prob"])
     p.Stroke_DM.2.death <- (1-exp(-(p.death+p.death.Stroke+p.death.DM)))
+    p.Stroke_DM.2.Stroke_DM <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
-    for (i in 1:n.individual)
-      #计算个体总和
-      if((p.Stroke_DM.2.death[i] + p.Stroke_DM.2.Stroke_CHD[i] + p.Stroke_DM.2.sub_Stroke[i])>1) {
-        original_sum[i] <- p.Stroke_DM.2.death[i] + p.Stroke_DM.2.Stroke_CHD[i] + p.Stroke_DM.2.sub_Stroke[i]
-        p.Stroke_DM.2.Stroke_CHD[i] <- p.Stroke_DM.2.Stroke_CHD[i] / (original_sum[i])
-        p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i] / (original_sum[i])
-        p.Stroke_DM.2.death[i] <- p.Stroke_DM.2.death[i] / (original_sum[i])
-      } else {
-        p.Stroke_DM.2.Stroke_CHD[i] <- p.Stroke_DM.2.Stroke_CHD[i]
-        p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i]
-        p.Stroke_DM.2.death[i] <- p.Stroke_DM.2.death[i]
+    for (i in 1:n.individual){
+      if(!any(is.na(c(p.Stroke_DM.2.death[i] , p.Stroke_DM.2.Stroke_CHD[i] , p.Stroke_DM.2.sub_Stroke[i])))){
+        if((p.Stroke_DM.2.death[i] + p.Stroke_DM.2.Stroke_CHD[i] + p.Stroke_DM.2.sub_Stroke[i])>1) {
+          original_sum[i] <- p.Stroke_DM.2.death[i] + p.Stroke_DM.2.Stroke_CHD[i] + p.Stroke_DM.2.sub_Stroke[i]
+          p.Stroke_DM.2.Stroke_CHD[i] <- p.Stroke_DM.2.Stroke_CHD[i] / (original_sum[i])
+          p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i] / (original_sum[i])
+          p.Stroke_DM.2.death[i] <- p.Stroke_DM.2.death[i] / (original_sum[i])
+          p.Stroke_DM.2.Stroke_DM[i] <- 0
+        } else {
+          p.Stroke_DM.2.Stroke_CHD[i] <- p.Stroke_DM.2.Stroke_CHD[i]
+          p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i]
+          p.Stroke_DM.2.death[i] <- p.Stroke_DM.2.death[i]
+          p.Stroke_DM.2.Stroke_DM[i] <- 1 - (p.Stroke_DM.2.death[i] + p.Stroke_DM.2.Stroke_CHD[i] + p.Stroke_DM.2.sub_Stroke[i])
+        }
       }
-    
-    p.Stroke_DM.2.Stroke_DM <- 1 - (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
+    }
     
     #Markov State #8: "CHD History, With Diabetes"
     p.CHD_DM.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_CHD_prob"])
     p.CHD_DM.2.CHD_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
     p.CHD_DM.2.death <- (1-exp(-(p.death+p.death.CHD+p.death.DM)))
+    p.CHD_DM.2.CHD_DM <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
-    for (i in 1:n.individual)
-      #计算个体总和
-      if((p.CHD_DM.2.death[i] + p.CHD_DM.2.sub_CHD[i] + p.CHD_DM.2.CHD_Stroke[i])>1) {
-        original_sum[i] <- p.CHD_DM.2.death[i] + p.CHD_DM.2.sub_CHD[i] + p.CHD_DM.2.CHD_Stroke[i]
-        p.CHD_DM.2.sub_CHD[i] <- p.CHD_DM.2.sub_CHD[i] / (original_sum[i])
-        p.CHD_DM.2.CHD_Stroke[i] <- p.CHD_DM.2.CHD_Stroke[i] / (original_sum[i])
-        p.CHD_DM.2.death[i] <- p.CHD_DM.2.death[i] / (original_sum[i])
-      } else {
-        p.CHD_DM.2.sub_CHD[i] <- p.CHD_DM.2.sub_CHD[i]
-        p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i]
-        p.CHD_DM.2.death[i] <- p.CHD_DM.2.death[i]
+    for (i in 1:n.individual){
+      if(!any(is.na(c(p.CHD_DM.2.death[i] , p.CHD_DM.2.sub_CHD[i] , p.CHD_DM.2.CHD_Stroke[i])))){
+        if((p.CHD_DM.2.death[i] + p.CHD_DM.2.sub_CHD[i] + p.CHD_DM.2.CHD_Stroke[i])>1) {
+          original_sum[i] <- p.CHD_DM.2.death[i] + p.CHD_DM.2.sub_CHD[i] + p.CHD_DM.2.CHD_Stroke[i]
+          p.CHD_DM.2.sub_CHD[i] <- p.CHD_DM.2.sub_CHD[i] / (original_sum[i])
+          p.CHD_DM.2.CHD_Stroke[i] <- p.CHD_DM.2.CHD_Stroke[i] / (original_sum[i])
+          p.CHD_DM.2.death[i] <- p.CHD_DM.2.death[i] / (original_sum[i])
+          p.CHD_DM.2.CHD_DM[i] <- 0
+        } else {
+          p.CHD_DM.2.sub_CHD[i] <- p.CHD_DM.2.sub_CHD[i]
+          p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i]
+          p.CHD_DM.2.death[i] <- p.CHD_DM.2.death[i]
+          p.CHD_DM.2.CHD_DM[i] <- 1 - (p.CHD_DM.2.death[i] + p.CHD_DM.2.sub_CHD[i] + p.CHD_DM.2.CHD_Stroke[i])
+        }
       }
-    
-    p.CHD_DM.2.CHD_DM <- 1 - (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
+    }
     
     #Markov State #9:"Recurrent Stroke" 
     p.sub_Stroke.2.death <- as.numeric(ifelse(as.numeric(sim_out_t[,"DM"]) ==1, (1-exp(-(p.death+p.death.Stroke+p.death.DM))), (1-exp(-(p.death+p.death.Stroke)))))
@@ -385,36 +413,38 @@ run_sim <- function(s, intervention) {
     #Markov state #13:"Stroke&CHD history, No diabetes"
     p.CVD_No_DM.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
     p.CVD_No_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke))
+    p.CVD_No_DM.2.CVD_No_DM <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
-    for (i in 1:n.individual)
-      #计算个体总和
-      if((p.CVD_No_DM.2.DM[i] + p.CVD_No_DM.2.death[i])>1) {
-        original_sum[i]<- p.CVD_No_DM.2.DM[i] + p.CVD_No_DM.2.death[i]
-        p.CVD_No_DM.2.DM[i] <- p.CVD_No_DM.2.DM[i] / (original_sum[i])
-        p.CVD_No_DM.2.death[i] <- p.CVD_No_DM.2.death[i] / (original_sum[i])
-      } else {
-        p.CVD_No_DM.2.DM[i] <- p.CVD_No_DM.2.DM[i]
-        p.CVD_No_DM.2.death[i] <- p.CVD_No_DM.2.death[i]
+    for (i in 1:n.individual){
+      if(!any(is.na(c(p.CVD_No_DM.2.DM[i] , p.CVD_No_DM.2.death[i])))){
+        if((p.CVD_No_DM.2.DM[i] + p.CVD_No_DM.2.death[i])>1) {
+          original_sum[i]<- p.CVD_No_DM.2.DM[i] + p.CVD_No_DM.2.death[i]
+          p.CVD_No_DM.2.DM[i] <- p.CVD_No_DM.2.DM[i] / (original_sum[i])
+          p.CVD_No_DM.2.death[i] <- p.CVD_No_DM.2.death[i] / (original_sum[i])
+          p.CVD_No_DM.2.CVD_No_DM[i] <- 0
+        } else {
+          p.CVD_No_DM.2.DM[i] <- p.CVD_No_DM.2.DM[i]
+          p.CVD_No_DM.2.death[i] <- p.CVD_No_DM.2.death[i]
+          p.CVD_No_DM.2.CVD_No_DM[i] <- 1 - (p.CVD_No_DM.2.DM[i] + p.CVD_No_DM.2.death[i])
+        }
       }
-    
-    p.CVD_No_DM.2.CVD_No_DM <- 1 - (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)
+    }
     
     #Markov state #14:"Stroke&CHD history, With diabetes"
-    p.CVD_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke+p.death.DM))
+    p.CVD_DM.2.death <- (1-exp(-(p.death+p.death.CHD+p.death.Stroke+p.death.DM)))
+    p.CVD_DM.2.CVD_DM <- numeric(n.individual)
     #0318 debug 修正概率和大于1的情况
-    for (i in 1:n.individual)
-      #计算个体总和
-      if((p.CVD_DM.2.death[i])>1) {
-        p.CVD_DM.2.death <- 1
-      } else {
-        p.CVD_DM.2.death[i] <- p.CVD_DM.2.death[i]
+    for (i in 1:n.individual){
+      if(!any(is.na(p.CVD_DM.2.death[i]))){
+        if((p.CVD_DM.2.death[i])>1) {
+          p.CVD_DM.2.death[i] <- 1
+          p.CVD_DM.2.CVD_DM[i] <- 0
+        } else {
+          p.CVD_DM.2.death[i] <- p.CVD_DM.2.death[i]
+          p.CVD_DM.2.CVD_DM[i] <- 1 - p.CVD_DM.2.death[i]
+        }
       }
-    
-    p.CVD_DM.2.CVD_DM <- 1 - p.CVD_DM.2.death
-    
-    #关于to death的问题：recurrent chd/stroke; chd&stroke都是GBD里面的数据
-    #比如原来的模型中，recurrent chd to death和chd to death的概率是一样的，但在现实情况中感觉不是很合理
-    
+    }
     
     ###################################################################################  
     ####2.5 Assign transition probablities to the transition matrix ##########

@@ -226,41 +226,42 @@ run_sim <- function(s, intervention) {
     p.H.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)  ##1个  -RR；看原模型的概率值对比
     p.H.2.initial_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_prob"])
     p.H.2.initial_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_prob"])
-    
-    # 如果和大于1
-    if (any((p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke) > 1)) {
-      # 概率更新
-      p.H.2.death <- p.H.2.death / (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
-      p.H.2.DM <- p.H.2.DM / (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
-      p.H.2.initial_CHD <- p.H.2.initial_CHD / (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
-      p.H.2.initial_Stroke <- p.H.2.initial_Stroke / (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
-    } else {
-      # 否则与原始值相同
-      p.H.2.death <- p.H.2.death
-      p.H.2.DM <- p.H.2.DM
-      p.H.2.initial_CHD <- p.H.2.initial_CHD
-      p.H.2.initial_Stroke <- p.H.2.initial_Stroke
-    }
-    
+    original_sum <- numeric(n.individual)
+    #0318 中午 debug 修正概率和大于1的情况
+    for (i in 1:n.individual)
+      if((p.H.2.death[i]+p.H.2.DM[i]+p.H.2.initial_CHD[i]+p.H.2.initial_Stroke[i])>1) {
+        original_sum[i] <- p.H.2.death[i]+p.H.2.DM[i]+p.H.2.initial_CHD[i]+p.H.2.initial_Stroke[i]
+        p.H.2.death[i] <- p.H.2.death[i] / (original_sum[i])
+        p.H.2.DM[i] <- p.H.2.DM[i] / (original_sum[i])
+        p.H.2.initial_CHD[i] <- p.H.2.initial_CHD[i] / (original_sum[i])
+        p.H.2.initial_Stroke[i] <- p.H.2.initial_Stroke[i] / (original_sum[i])
+      }else{
+        p.H.2.death[i] <- p.H.2.death[i]
+        p.H.2.DM[i] <- p.H.2.DM[i]
+        p.H.2.initial_CHD[i] <- p.H.2.initial_CHD[i]
+        p.H.2.initial_Stroke[i] <- p.H.2.initial_Stroke[i]
+      }
     p.H.2.H <- 1 - (p.H.2.death+p.H.2.DM + p.H.2.initial_CHD + p.H.2.initial_Stroke)
+    
     
     #Markov State #2: "No CVD, With Diabetes"
     p.DM.2.death <- (1-exp(-(p.death+p.death.DM)))
     p.DM.2.initial_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_prob"])
     p.DM.2.initial_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_prob"])
     
-    # 如果和大于1
-    if (any((p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death) > 1)) {
-      # 概率更新
-      p.DM.2.death <- p.DM.2.death / (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
-      p.DM.2.initial_CHD <- p.DM.2.initial_CHD / (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
-      p.DM.2.initial_Stroke <- p.DM.2.initial_Stroke / (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
-    } else {
-      # 否则与原始值相同
-      p.DM.2.death <- p.DM.2.death
-      p.DM.2.initial_CHD <- p.DM.2.initial_CHD
-      p.DM.2.initial_Stroke <- p.DM.2.initial_Stroke
-    }
+    #0318 debug 修正概率和大于1的情况
+    for (i in 1:n.individual)
+      #计算个体总和
+      if((p.DM.2.initial_CHD[i] + p.DM.2.initial_Stroke[i] + p.DM.2.death[i]) > 1){
+        original_sum[i] <- p.DM.2.initial_CHD[i] + p.DM.2.initial_Stroke[i] + p.DM.2.death[i]
+        p.DM.2.death[i] <- p.DM.2.death / (original_sum[i])
+        p.DM.2.initial_CHD[i] <- p.DM.2.initial_CHD / (original_sum[i])
+        p.DM.2.initial_Stroke[i] <- p.DM.2.initial_Stroke / (original_sum[i])
+      }else{
+        p.DM.2.death[i] <- p.DM.2.death[i]
+        p.DM.2.initial_CHD[i] <- p.DM.2.initial_CHD[i]
+        p.DM.2.initial_Stroke[i] <- p.DM.2.initial_Stroke[i]
+      }
     p.DM.2.DM <- 1 - (p.DM.2.initial_CHD + p.DM.2.initial_Stroke + p.DM.2.death)
     
     #Markov State #3: "First Stroke"
@@ -279,20 +280,21 @@ run_sim <- function(s, intervention) {
     p.Stroke.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_stroke_prob"])
     p.Stroke.2.death <- (1-exp(-(p.death+p.death.Stroke)))
     
-    # 如果和大于1
-    if (any((p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death) > 1)) {
-      # 概率更新
-      p.Stroke.2.DM <- p.Stroke.2.DM / (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
-      p.Stroke.2.Stroke_CHD <- p.Stroke.2.Stroke_CHD / (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
-      p.Stroke.2.sub_Stroke <- p.Stroke.2.sub_Stroke / (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
-      p.Stroke.2.death <- p.Stroke.2.death / (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
-    } else {
-      # 否则与原始值相同
-      p.Stroke.2.DM <- p.Stroke.2.DM
-      p.Stroke.2.Stroke_CHD <- p.Stroke.2.Stroke_CHD
-      p.Stroke.2.sub_Stroke <- p.Stroke.2.sub_Stroke
-      p.Stroke.2.death <- p.Stroke.2.death
-    }
+    #0318 debug 修正概率和大于1的情况
+    for (i in 1:n.individual)
+      #计算个体总和
+      if((p.Stroke.2.DM[i] + p.Stroke.2.Stroke_CHD[i] + p.Stroke.2.sub_Stroke[i] + p.Stroke.2.death[i])>1) {
+        original_sum[i] <- p.Stroke.2.DM[i] + p.Stroke.2.Stroke_CHD[i] + p.Stroke.2.sub_Stroke[i] + p.Stroke.2.death[i]
+        p.Stroke.2.DM[i] <- p.Stroke.2.DM[i] / (original_sum[i])
+        p.Stroke.2.Stroke_CHD[i] <- p.Stroke.2.Stroke_CHD[i] / (original_sum[i])
+        p.Stroke.2.sub_Stroke[i] <- p.Stroke.2.sub_Stroke[i] / (original_sum[i])
+        p.Stroke.2.death[i] <- p.Stroke.2.death[i] / (original_sum[i])
+      }else{
+        p.Stroke.2.DM[i] <- p.Stroke.2.DM[i]
+        p.Stroke.2.Stroke_CHD[i] <- p.Stroke.2.Stroke_CHD[i]
+        p.Stroke.2.sub_Stroke[i] <- p.Stroke.2.sub_Stroke[i]
+        p.Stroke.2.death[i] <- p.Stroke.2.death[i]
+      }
     
     p.Stroke.2.Stroke <- 1 - (p.Stroke.2.DM + p.Stroke.2.Stroke_CHD + p.Stroke.2.sub_Stroke + p.Stroke.2.death)
     
@@ -302,21 +304,21 @@ run_sim <- function(s, intervention) {
     p.CHD.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_CHD_prob"])
     p.CHD.2.CHD_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
     p.CHD.2.death <- (1-exp(-(p.death+p.death.CHD)))
-    
-    # 如果和大于1
-    if (any((p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death) > 1)) {
-      # 概率更新
-      p.CHD.2.DM <- p.CHD.2.DM / (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
-      p.CHD.2.sub_CHD <- p.CHD.2.sub_CHD / (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
-      p.CHD.2.CHD_Stroke <- p.CHD.2.CHD_Stroke / (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
-      p.CHD.2.death <- p.CHD.2.death / (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
-    } else {
-      # 否则与原始值相同
-      p.CHD.2.DM <- p.CHD.2.DM
-      p.CHD.2.sub_CHD <- p.CHD.2.sub_CHD
-      p.CHD.2.CHD_Stroke <- p.CHD.2.CHD_Stroke
-      p.CHD.2.death <- p.CHD.2.death
-    }
+    #0318 debug 修正概率和大于1的情况
+    for (i in 1:n.individual)
+      #计算个体总和
+      if((p.CHD.2.DM[i] + p.CHD.2.sub_CHD[i] + p.CHD.2.CHD_Stroke[i] + p.CHD.2.death[i])>1) {
+        original_sum[i] <- p.CHD.2.DM[i] + p.CHD.2.sub_CHD[i] + p.CHD.2.CHD_Stroke[i] + p.CHD.2.death[i]
+        p.CHD.2.DM[i] <- p.CHD.2.DM[i] / (original_sum[i])
+        p.CHD.2.sub_CHD[i] <- p.CHD.2.sub_CHD[i] / (original_sum[i])
+        p.CHD.2.CHD_Stroke[i] <- p.CHD.2.CHD_Stroke[i] / (original_sum[i])
+        p.CHD.2.death[i] <- p.CHD.2.death[i] / (original_sum[i])
+      }else{
+        p.CHD.2.DM[i] <- p.CHD.2.DM[i]
+        p.CHD.2.sub_CHD[i] <- p.CHD.2.sub_CHD[i]
+        p.CHD.2.CHD_Stroke[i] <- p.CHD.2.CHD_Stroke[i]
+        p.CHD.2.death[i] <- p.CHD.2.death[i]
+      }
     
     p.CHD.2.CHD <- 1 - (p.CHD.2.DM + p.CHD.2.sub_CHD + p.CHD.2.CHD_Stroke + p.CHD.2.death)
     
@@ -324,38 +326,40 @@ run_sim <- function(s, intervention) {
     p.Stroke_DM.2.Stroke_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_stroke_prob"])
     p.Stroke_DM.2.sub_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_stroke_prob"])
     p.Stroke_DM.2.death <- (1-exp(-(p.death+p.death.Stroke+p.death.DM)))
+    #0318 debug 修正概率和大于1的情况
+    for (i in 1:n.individual)
+      #计算个体总和
+      if((p.Stroke_DM.2.death[i] + p.Stroke_DM.2.Stroke_CHD[i] + p.Stroke_DM.2.sub_Stroke[i])>1) {
+        original_sum[i] <- p.Stroke_DM.2.death[i] + p.Stroke_DM.2.Stroke_CHD[i] + p.Stroke_DM.2.sub_Stroke[i]
+        p.Stroke_DM.2.Stroke_CHD[i] <- p.Stroke_DM.2.Stroke_CHD[i] / (original_sum[i])
+        p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i] / (original_sum[i])
+        p.Stroke_DM.2.death[i] <- p.Stroke_DM.2.death[i] / (original_sum[i])
+      } else {
+        p.Stroke_DM.2.Stroke_CHD[i] <- p.Stroke_DM.2.Stroke_CHD[i]
+        p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i]
+        p.Stroke_DM.2.death[i] <- p.Stroke_DM.2.death[i]
+      }
     
-    # 如果和大于1
-    if (any((p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke) > 1)) {
-      # 概率更新
-      p.Stroke_DM.2.Stroke_CHD <- p.Stroke_DM.2.Stroke_CHD / (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
-      p.Stroke_DM.2.sub_Stroke <- p.Stroke_DM.2.sub_Stroke / (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
-      p.Stroke_DM.2.death <- p.Stroke_DM.2.death / (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
-    } else {
-      # 否则与原始值相同
-      p.Stroke_DM.2.Stroke_CHD <- p.Stroke_DM.2.Stroke_CHD
-      p.Stroke_DM.2.sub_Stroke <- p.Stroke_DM.2.sub_Stroke
-      p.Stroke_DM.2.death <- p.Stroke_DM.2.death
-    }
     p.Stroke_DM.2.Stroke_DM <- 1 - (p.Stroke_DM.2.death + p.Stroke_DM.2.Stroke_CHD + p.Stroke_DM.2.sub_Stroke)
     
     #Markov State #8: "CHD History, With Diabetes"
     p.CHD_DM.2.sub_CHD <- RR_diff_total_CHD*as.numeric(sim_out_t[,"CHD_after_CHD_prob"])
     p.CHD_DM.2.CHD_Stroke <- RR_diff_total_Stroke*as.numeric(sim_out_t[,"Stroke_after_CHD_prob"])
     p.CHD_DM.2.death <- (1-exp(-(p.death+p.death.CHD+p.death.DM)))
+    #0318 debug 修正概率和大于1的情况
+    for (i in 1:n.individual)
+      #计算个体总和
+      if((p.CHD_DM.2.death[i] + p.CHD_DM.2.sub_CHD[i] + p.CHD_DM.2.CHD_Stroke[i])>1) {
+        original_sum[i] <- p.CHD_DM.2.death[i] + p.CHD_DM.2.sub_CHD[i] + p.CHD_DM.2.CHD_Stroke[i]
+        p.CHD_DM.2.sub_CHD[i] <- p.CHD_DM.2.sub_CHD[i] / (original_sum[i])
+        p.CHD_DM.2.CHD_Stroke[i] <- p.CHD_DM.2.CHD_Stroke[i] / (original_sum[i])
+        p.CHD_DM.2.death[i] <- p.CHD_DM.2.death[i] / (original_sum[i])
+      } else {
+        p.CHD_DM.2.sub_CHD[i] <- p.CHD_DM.2.sub_CHD[i]
+        p.Stroke_DM.2.sub_Stroke[i] <- p.Stroke_DM.2.sub_Stroke[i]
+        p.CHD_DM.2.death[i] <- p.CHD_DM.2.death[i]
+      }
     
-    # 如果和大于1
-    if (any((p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke) > 1)) {
-      # 概率更新
-      p.CHD_DM.2.sub_CHD <- p.CHD_DM.2.sub_CHD / (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
-      p.CHD_DM.2.CHD_Stroke <- p.CHD_DM.2.CHD_Stroke / (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
-      p.CHD_DM.2.death <- p.CHD_DM.2.death / (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
-    } else {
-      # 否则与原始值相同
-      p.CHD_DM.2.sub_CHD <- p.CHD_DM.2.sub_CHD
-      p.Stroke_DM.2.sub_Stroke <- p.Stroke_DM.2.sub_Stroke
-      p.CHD_DM.2.death <- p.CHD_DM.2.death
-    }
     p.CHD_DM.2.CHD_DM <- 1 - (p.CHD_DM.2.death + p.CHD_DM.2.sub_CHD + p.CHD_DM.2.CHD_Stroke)
     
     #Markov State #9:"Recurrent Stroke" 
@@ -381,30 +385,30 @@ run_sim <- function(s, intervention) {
     #Markov state #13:"Stroke&CHD history, No diabetes"
     p.CVD_No_DM.2.DM <- RR_diff_total_DM*as.numeric(sim_out_t[,"DM_prob"])*rep(data_for_analysis$risk_adjustment.DM, n.loop)
     p.CVD_No_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke))
-    
-    # 如果和大于1
-    if (any((p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death) > 1)) {
-      # 概率更新
-      p.CVD_No_DM.2.DM <- p.CVD_No_DM.2.DM / (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)
-      p.CVD_No_DM.2.death <- p.CVD_No_DM.2.death / (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)
-    } else {
-      # 否则与原始值相同
-      p.CVD_No_DM.2.DM <- p.CVD_No_DM.2.DM
-      p.CVD_No_DM.2.death <- p.CVD_No_DM.2.death
-    }
+    #0318 debug 修正概率和大于1的情况
+    for (i in 1:n.individual)
+      #计算个体总和
+      if((p.CVD_No_DM.2.DM[i] + p.CVD_No_DM.2.death[i])>1) {
+        original_sum[i]<- p.CVD_No_DM.2.DM[i] + p.CVD_No_DM.2.death[i]
+        p.CVD_No_DM.2.DM[i] <- p.CVD_No_DM.2.DM[i] / (original_sum[i])
+        p.CVD_No_DM.2.death[i] <- p.CVD_No_DM.2.death[i] / (original_sum[i])
+      } else {
+        p.CVD_No_DM.2.DM[i] <- p.CVD_No_DM.2.DM[i]
+        p.CVD_No_DM.2.death[i] <- p.CVD_No_DM.2.death[i]
+      }
     
     p.CVD_No_DM.2.CVD_No_DM <- 1 - (p.CVD_No_DM.2.DM + p.CVD_No_DM.2.death)
     
     #Markov state #14:"Stroke&CHD history, With diabetes"
     p.CVD_DM.2.death <- (1-exp(p.death+p.death.CHD+p.death.Stroke+p.death.DM))
-    # 如果和大于1
-    if (any((p.CVD_DM.2.death) > 1)) {
-      # 概率更新
-      p.CVD_DM.2.death <- 1
-    } else {
-      # 否则与原始值相同
-      p.CVD_DM.2.death <- p.CVD_DM.2.death
-    }
+    #0318 debug 修正概率和大于1的情况
+    for (i in 1:n.individual)
+      #计算个体总和
+      if((p.CVD_DM.2.death[i])>1) {
+        p.CVD_DM.2.death <- 1
+      } else {
+        p.CVD_DM.2.death[i] <- p.CVD_DM.2.death[i]
+      }
     
     p.CVD_DM.2.CVD_DM <- 1 - p.CVD_DM.2.death
     
@@ -550,6 +554,20 @@ run_sim <- function(s, intervention) {
     #Transition to the next health state 
     
     sim_out_t[,"state"]<- apply(p.transition, 1, function(x) sample(name.health.state, 1, prob = x))
+    
+    # 检查矩阵中是否存在负值
+    #if (any(p.transition < 0)) {
+    #print("矩阵中存在负值！")
+    #} else {
+    #print("矩阵中不存在负值。")
+    #}
+    #矩阵中存在负值
+    # 找出矩阵中负值的位置
+    #negative_indices <- which(p.transition < 0, arr.ind = TRUE)
+    
+    # 输出负值的位置
+    #print(negative_indices)
+    #均为“No CVD, No Diabetes",即p.H.2.H中存在负值
     
     sim_out_t[,"DM"] <- ifelse(sim_out_t[,"state"]%in% c("No CVD, With Diabetes", "Stroke History, With Diabetes", "CHD History, With Diabetes","Stroke&CHD History, With Diabetes"), 1, 
                                ifelse(sim_out_t[,"state"]== "DM_Death", 1, 

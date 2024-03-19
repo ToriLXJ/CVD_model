@@ -35,13 +35,13 @@ ptm <- proc.time()
 estGammaParams <- function(mu, var) {
   beta <- var / mu
   alpha <- mu / beta
-  return(list(alpha = alpha, beta = beta))
+  return(params = list(alpha = alpha, beta = beta))
 }
 
 estBetaParams <- function(mu, var) {
   alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
   beta <- alpha * (1 / mu - 1)
-  return(list(alpha = alpha, beta = beta))
+  return(params = list(alpha = alpha, beta = beta))
 }
 
 
@@ -84,7 +84,9 @@ Multi_yr_Risk_to_annual_prob <- function(time, risk) {
 }
 
 # 0.3 Creating Working Directory 
-setwd("D:/Research-SJTUH/CVD/code/CVD_model/")
+current_directory <- getwd()
+print(current_directory)
+# setwd("C:/Users/ASUS/Desktop/data_v3")
 
 # 0.4 Source other key scripts#########################################
 source("02_Programs/CVD_risk_prediction.R")
@@ -100,8 +102,8 @@ args <- commandArgs(trailingOnly = TRUE)  # get all arguments after script.R
 # Otherwise, read modeling choices from command line.
 if (length(args) == 0) {
   seed <- 1234
-  n.sim <- 2 #Number of probablistic samplings,这个改完会跑不通模型？
-  n.cycle <-1 #Number of Cycle Length: How long does the model run (i.e., analytic time horizon)
+  n.sim <- 2 #Number of probablistic samplings
+  n.cycle <-100#Number of Cycle Length: How long does the model run (i.e., analytic time horizon)
   n.sample <- "ALL" #Number of individuals to be selected from the full sample; if full sample, enter "ALL"
   intervention <- "Policy"   ##$$specific for project 设置intervention
   n.loop=1  ##validation时设置为1
@@ -118,7 +120,7 @@ if (length(args) == 0) {
   n.cycle <- as.numeric(args[3])
   # Assume entire sample
   n.sample = "ALL"
-  scenario=args[4]
+  intervention=args[4]
   n.loop=as.numeric(args[5])
   # check that modeling choices were set
   if (is.na(seed)) {
@@ -151,7 +153,7 @@ policy_effect_SSB_sim <- calc_nsims_rbeta(n.sim, mu = 0.30, se = 0.06)
 policy_effect_SSB <- policy_effect_SSB_sim
 
 # Policy costs: scale to per year
-c_policy = rnorm(n.sim, 85961.3, 17192.3)
+c_policy = rnorm(n.sim, 39850686.57, 39850686.57*0.2)
 
 # discounting rate
 beta_cost <- beta_QALY <- 0.03 #Annual discounting rate of costs and QALYs
@@ -160,7 +162,7 @@ beta_cost <- beta_QALY <- 0.03 #Annual discounting rate of costs and QALYs
 
 print('Importing data')
 
-CHNS<- fread("01_Input/CHNS_Imp_0305.csv", stringsAsFactors = TRUE, data.table = FALSE)
+CHNS<- fread("01_Input/CHNS_Imp_final.csv", stringsAsFactors = TRUE, data.table = FALSE)
 
 # 1.1.1 Select only necessary variables from master input file
 variables <- c("AGE", "GENDER", "BMI", "SBP", "TC", 
@@ -177,7 +179,6 @@ if (n.sample == "ALL"){
   random_sample <- sample(1:nrow(CHNS),n.sample,replace=F)
   data_for_analysis <- CHNS[random_sample,]
 }
-# TODO：这里修改成按照年龄和性别人口比例，从CHNS中采样
 
 data_for_analysis <- data_for_analysis[order(data_for_analysis$Subject_ID), ]
 
@@ -228,11 +229,15 @@ data_for_analysis$WT_TOTAL[data_for_analysis$AGE>=85 & data_for_analysis$AGE<=89
 data_for_analysis$WT_TOTAL[data_for_analysis$AGE>=90 & data_for_analysis$AGE<=94 & data_for_analysis$GENDER==2] <- 9.8
 data_for_analysis$WT_TOTAL[data_for_analysis$AGE>=95 & data_for_analysis$GENDER==2] <- 2.71
 
+# 1.1.5 DM risk adjustment for non-whites
+data_for_analysis$risk_adjustment.DM <- ifelse(data_for_analysis$GENDER == 1, 0.14,0.11)
+
+
 # 1.1.6 Other inputs
 
 ##Initial health states.
 name.health.state <- c("No CVD, No Diabetes", "No CVD, With Diabetes", "First Stroke", "First CHD",
-                       "CHD History, No Diabetes", "CHD History, With Diabetes","Stroke History, No Diabetes", "Stroke History, With Diabetes", "Subsequent Stroke", "Subsequent CHD", "DM_Death","Stroke_Death", "CHD_Death", "Non_DM_Non_CVD_Death","Death") 
+                       "CHD History, No Diabetes", "CHD History, With Diabetes","Stroke History, No Diabetes", "Stroke History, With Diabetes","Subsequent Stroke", "Subsequent CHD", "CHD+Stroke","Stroke+CHD","Stroke&CHD History, No Diabetes","Stroke&CHD History, With Diabetes","DM_Death","Stroke_Death", "CHD_Death", "Non_DM_Non_CVD_Death","Death") 
 n.health.state <- length(name.health.state) # number of health state that individuals can transition over time
 name.death.states <- c("DM_Death", "Stroke_Death", "CHD_Death", "Non_DM_Non_CVD_Death","Death")
 
@@ -262,19 +267,6 @@ for (g in 1:nrow(random_logrr)) {
   random_logrr_bmi_stroke[g,] <- rnorm(n.sim, RR_bmi_stroke$logRR.perchange[g], RR_bmi_stroke$se.perchange[g])
   random_logrr_bmi_dm[g,] <- rnorm(n.sim, RR_bmi_dm$logRR.perchange[g], RR_bmi_dm$se.perchange[g])
 }
-
-if(FALSE) {
-  chd_dm_equal <- all.equal(random_logrr_SSB_chd, random_logrr_SSB_dm)
-  chd_bmi_chd_equal <- all.equal(random_logrr_SSB_chd, random_logrr_bmi_chd)
-  chd_bmi_stroke_equal <- all.equal(random_logrr_SSB_chd, random_logrr_bmi_stroke)
-  chd_bmi_dm_equal <- all.equal(random_logrr_SSB_chd, random_logrr_bmi_dm)
-  
-  print(chd_dm_equal)
-  print(chd_bmi_chd_equal)
-  print(chd_bmi_stroke_equal)
-  print(chd_bmi_dm_equal)
-}
-
 
 # 1.2.2 Indirect effect on disease
 # BMI change due to change in SSB intake  low=BMI<25
@@ -472,40 +464,14 @@ acomb <- function(...) abind(..., along = 3)
 
 # 3.1 run n.sim times of the simulation function in parallel processes, and then combine the results in sim_out, Run the function for each arm separately 
 ## The output is an 3-dimensional array (n.sample, variables, n.sim )
-
-# debug_lxj
-if(False) {
-  # 检查data_for_analysis中是否存在缺失值
-  any_na <- apply(data_for_analysis, 2, function(x) any(is.na(x)))
-  
-  # 输出包含缺失值的列名
-  names(data_for_analysis)[any_na]
-  # "initial_H" "Age_cycle"
-  
-  # 统计缺失值数量
-  missing_values <- colSums(is.na(data_for_analysis))
-  # 输出缺失值数量
-  print("每列缺失值数量：")
-  print(missing_values)
-  # initial_H : 7; Age_cycle: 7327.
-  # 修改Age_cycle = AGE
-  # 查看描述性统计
-  # summary(data_for_analysis$initial_H)
-  # summary(data_for_analysis$Age_cycle)
-  # print()
-  # 打印含有缺失值的行
-  missing_rows <- which(is.na(data_for_analysis$initial_H))
-  print(data_for_analysis[missing_rows, ])
-}
-# revise_lxj, start
-data_for_analysis$initial_H[is.na(data_for_analysis$initial_H)] <- 1
-data_for_analysis$Age_cycle <- data_for_analysis$AGE
-# revise_lxj, end
-
+data_for_analysis $ initial_H[is.na(data_for_analysis$initial_H)] <- 1
+data_for_analysis $Age_cycle <- data_for_analysis$AGE
 sim_out_Policy <- foreach(s=1:n.sim, .combine = 'acomb', .verbose = T) %do% {
   set.seed(seed + n.cycle*s)
   run_sim(s, "Policy")
 }
+
+
 ##save the output for policy arm
 saveRDS(sim_out_Policy, file = paste("03_Output/sim_out_policy",  "SEED", seed, n.sim, n.cycle, n.loop, Sys.Date(), ".rda", sep = "_"))
 
@@ -530,9 +496,12 @@ summ_start = proc.time()
 #load the processing functions 
 source("02_Programs/processing_function_SSB.R")
 
-#process the data for subgroup analysis later  要不要分得细一点？
+#process the data for subgroup analysis later 
 data_for_analysis$age_cat[data_for_analysis$AGE<65] <-1
 data_for_analysis$age_cat[data_for_analysis$AGE>64]<-2
+
+data_for_analysis$gender_cat_100[data_for_analysis$AGE<100 & data_for_analysis$GENDER==1] <- 1
+data_for_analysis$gender_cat_100[data_for_analysis$AGE<100 & data_for_analysis$GENDER==2] <- 2
 
 # Create survey design object for full population
 
@@ -583,23 +552,26 @@ write.csv(cea_table, paste("03_Output/cea_table_", seed, intervention, n.cycle, 
 
 ###summary by variables
 
-byvars<-c("age_cat","GENDER")
+byvars<-c("gender_cat_100")
 
-summary_by<-calc_summary_by(byvars, diff_timehoriz_sub)
+summary_by_Policy<-calc_summary_by_Policy(byvars, sim_out_Policy_sub)
+summary_by_No_Policy<-calc_summary_by_No_Policy(byvars, sim_out_No_Policy_sub)
 
-write.csv(summary_by[1], paste("03_Output/summary_by_", seed, intervention, n.cycle,  "yrs_",  Sys.Date(),  ".csv", sep = ""))
+write.csv(summary_by_Policy[1], paste("03_Output/summary_by_Policy_", seed, intervention, n.cycle,  "yrs_",  Sys.Date(),  ".csv", sep = ""))
+write.csv(summary_by_No_Policy[1], paste("03_Output/summary_by_No_Policy_", seed, intervention, n.cycle,  "yrs_",  Sys.Date(),  ".csv", sep = ""))
 
-write.csv(summary_by[1], paste("03_Output/pop_summary_by_", seed, intervention, n.cycle, "yrs_",  Sys.Date(), ".csv", sep = ""))
 
 varkeep <- c("Total_cost_health", "Total_cost_societ", "effect_disc")
 allsimsby<-calc_allsim_by( byvars, varkeep, diff_timehoriz_sub)  
 write.csv(allsimsby, paste("03_Output/pop_summary_allsim_bysub", seed, intervention, n.cycle, "yrs_",  Sys.Date(), ".csv", sep = ""))
-
-
-
 
 print("Time to summarize and save output:")
 proc.time() - summ_start
 
 print("Total time:")
 proc.time() - ptm
+
+install.packages("xlsx")
+library("xlsx")
+write.xlsx(No_Policy_summary, "03_Output/No_Policy_summary.xlsx")
+

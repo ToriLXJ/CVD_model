@@ -101,8 +101,8 @@ args <- commandArgs(trailingOnly = TRUE)  # get all arguments after script.R
 if (length(args) == 0) {
   seed <- 1234
   n.sim <- 2 #Number of probablistic samplings
-  n.cycle <-100#Number of Cycle Length: How long does the model run (i.e., analytic time horizon)
-  n.sample <- "ALL" #Number of individuals to be selected from the full sample; if full sample, enter "ALL"
+  n.cycle <-6 #Number of Cycle Length: How long does the model run (i.e., analytic time horizon)
+  n.sample <- "ALL" #Number o4f individuals to be selected from the full sample; if full sample, enter "ALL"
   intervention <- "Policy"   ##$$specific for project 设置intervention
   n.loop=1  ##validation时设置为1
   #n.loop is the Number of replicates for each individual, each person is replicated for n.loop times and the outcomes are averaged across these replicates 
@@ -228,7 +228,7 @@ data_for_analysis$WT_TOTAL[data_for_analysis$AGE>=90 & data_for_analysis$AGE<=94
 data_for_analysis$WT_TOTAL[data_for_analysis$AGE>=95 & data_for_analysis$GENDER==2] <- 2.71
 
 # 1.1.5 DM risk adjustment for non-whites
-data_for_analysis$risk_adjustment.DM <- ifelse(data_for_analysis$GENDER == 1, 0.14,0.11)
+data_for_analysis$risk_adjustment.DM <- ifelse(data_for_analysis$GENDER == 1, 0.12,0.09)
 
 
 # 1.1.6 Other inputs
@@ -386,6 +386,7 @@ c_prod_DM_sim <- calc_nsims_rgamma(n.sim,c_prod_DM,c_prod_DM*0.2)
 variable_for_raw.input <- names(data_for_analysis)
 raw.input.data <- data_for_analysis
 data_for_analysis$DM_prob <- calc_DM_risk(raw.input.data)
+data_for_analysis$DM_prob <- Multi_yr_Risk_to_annual_prob(time=10, risk=data_for_analysis$DM_prob)
 
 # 2.2 CVD Risk Prediction
 raw.input.data <- data_for_analysis
@@ -462,13 +463,15 @@ acomb <- function(...) abind(..., along = 3)
 
 # 3.1 run n.sim times of the simulation function in parallel processes, and then combine the results in sim_out, Run the function for each arm separately 
 ## The output is an 3-dimensional array (n.sample, variables, n.sim )
+
 data_for_analysis $ initial_H[is.na(data_for_analysis$initial_H)] <- 1
 data_for_analysis $Age_cycle <- data_for_analysis$AGE
 sim_out_Policy <- foreach(s=1:n.sim, .combine = 'acomb', .verbose = T) %do% {
   set.seed(seed + n.cycle*s)
   run_sim(s, "Policy")
 }
-
+#检查输出情况
+#write.csv(sim_out_Policy,"./sim_out_Policy.csv")
 
 ##save the output for policy arm
 saveRDS(sim_out_Policy, file = paste("03_Output/sim_out_policy",  "SEED", seed, n.sim, n.cycle, n.loop, Sys.Date(), ".rda", sep = "_"))
@@ -477,6 +480,9 @@ sim_out_No_Policy <- foreach(s=1:n.sim, .combine = 'acomb', .verbose = T) %do% {
   set.seed(seed + n.cycle*s)
   run_sim(s, "No Policy")
 }
+#检查输出情况
+#write.csv(sim_out_No_Policy,"./sim_out_No_Policy.csv")
+
 ##save the output for nonpolicy arm
 saveRDS(sim_out_No_Policy, file = paste("03_Output/sim_out_nopolicy",  "SEED", seed, n.sim, n.cycle, n.loop, Sys.Date(), ".rda", sep = "_"))
 
@@ -498,8 +504,9 @@ source("02_Programs/processing_function_SSB.R")
 data_for_analysis$age_cat[data_for_analysis$AGE<65] <-1
 data_for_analysis$age_cat[data_for_analysis$AGE>64]<-2
 
-data_for_analysis$gender_cat_100[data_for_analysis$AGE<100 & data_for_analysis$GENDER==1] <- 1
-data_for_analysis$gender_cat_100[data_for_analysis$AGE<100 & data_for_analysis$GENDER==2] <- 2
+#限制cycle=100时 age<100
+#data_for_analysis$gender_cat_100[data_for_analysis$AGE<100 & data_for_analysis$GENDER==1] <- 1
+#data_for_analysis$gender_cat_100[data_for_analysis$AGE<100 & data_for_analysis$GENDER==2] <- 2
 
 # Create survey design object for full population
 
@@ -550,8 +557,8 @@ write.csv(cea_table, paste("03_Output/cea_table_", seed, intervention, n.cycle, 
 
 ###summary by variables
 
-byvars<-c("gender_cat_100")
-
+#byvars<-c("gender_cat_100")
+byvars<-c("age_cat","GENDER")
 summary_by_Policy<-calc_summary_by_Policy(byvars, sim_out_Policy_sub)
 summary_by_No_Policy<-calc_summary_by_No_Policy(byvars, sim_out_No_Policy_sub)
 
@@ -568,5 +575,3 @@ proc.time() - summ_start
 
 print("Total time:")
 proc.time() - ptm
-
-
